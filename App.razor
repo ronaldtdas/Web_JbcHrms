@@ -18,7 +18,7 @@
     {
         if (NavigationManager.Uri.EndsWith("/") || NavigationManager.Uri.EndsWith(NavigationManager.BaseUri.TrimEnd('/')))
         {
-            NavigationManager.NavigateTo("/employees");
+            NavigationManager.NavigateTo("employees", replace: true);
         }
     }
 }
