@@ -1,0 +1,182 @@
+@page "/salary-certificate"
+
+@using Web_JbcHrms.Models
+@using CsvHelper
+@using System.Globalization
+@using System.IO
+@using System.Linq
+@using System.Text.Json
+@inject IJSRuntime JSRuntime
+
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="text-center mb-5">
+                <h2 class="mb-4">Salary Certificate</h2>
+
+                <!-- Search Bar -->
+                <div class="search-container mb-4">
+                    <div class="input-group input-group-lg">
+                        <input type="text" class="form-control" placeholder="Search employees by name..." @bind="searchQuery" @bind:event="oninput" @onkeydown="HandleSearchKeyDown" />
+                        <button class="btn btn-primary" type="button" @onclick="PerformSearch">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Search Results -->
+                @if (searchResults != null && searchResults.Any())
+                {
+                    <div class="search-results">
+                        <h5 class="text-muted mb-3">Search Results (@searchResults.Count)</h5>
+                        @foreach (var employee in searchResults)
+                        {
+                            <div class="card mb-2">
+                                <div class="card-body d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="card-title mb-1">@employee.Salutation @employee.FirstName @employee.LastName</h6>
+                                        <p class="card-text text-muted mb-0">@employee.Designation</p>
+                                    </div>
+                                    <div>
+                                        <button class="btn btn-sm btn-info me-2" @onclick="() => ViewEmployee(employee)">
+                                            <i class="bi bi-eye"></i> View
+                                        </button>
+                                        <button class="btn btn-sm btn-secondary" @onclick="() => PrintCertificate(employee)">
+                                            <i class="bi bi-printer"></i> Print
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(searchQuery) && searchResults != null && !searchResults.Any())
+                {
+                    <div class="text-center text-muted">
+                        <p>No employees found matching "@searchQuery"</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Employee Modal -->
+@if (showViewModal && selectedEmployee != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">View Employee Details</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseViewModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>Employee ID:</strong> @selectedEmployee.EmployeeID</div>
+                        <div class="col-md-6"><strong>Salutation:</strong> @selectedEmployee.Salutation</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>First Name:</strong> @selectedEmployee.FirstName</div>
+                        <div class="col-md-6"><strong>Last Name:</strong> @selectedEmployee.LastName</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>Designation:</strong> @selectedEmployee.Designation</div>
+                        <div class="col-md-6"><strong>Joining Date:</strong> @selectedEmployee.JoiningDate.ToString("dd MMMM, yyyy")</div>
+                    </div>
+                    <hr />
+                    <h6 class="text-primary">Salary Details</h6>
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>Gross:</strong> @selectedEmployee.Gross.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Basic Salary:</strong> @selectedEmployee.BasicSalary.ToString("N2") ৳</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>House Allowance:</strong> @selectedEmployee.HouseAllowance.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Medical Allowance:</strong> @selectedEmployee.MedicalAllowance.ToString("N2") ৳</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>Travel Allowance:</strong> @selectedEmployee.TravelAllowance.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Transport Allowance:</strong> @selectedEmployee.TransportAllowance.ToString("N2") ৳</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>Performance Allowance:</strong> @selectedEmployee.PerformanceAllowance.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Miscellaneous:</strong> @selectedEmployee.Miscellaneous.ToString("N2") ৳</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>Monthly Tax Deduction:</strong> @selectedEmployee.MonthlyTaxDeduction.ToString("N2") ৳</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseViewModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Employee>? employees;
+    private string searchQuery = "";
+    private List<Employee>? searchResults;
+    private bool showViewModal = false;
+    private Employee? selectedEmployee;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEmployeesFromStorage();
+    }
+
+    private async Task LoadEmployeesFromStorage()
+    {
+        var json = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "employees");
+        if (!string.IsNullOrEmpty(json))
+        {
+            employees = JsonSerializer.Deserialize<List<Employee>>(json);
+        }
+    }
+
+    private void PerformSearch()
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery) || employees == null)
+        {
+            searchResults = new List<Employee>();
+            return;
+        }
+
+        var query = searchQuery.ToLowerInvariant();
+        searchResults = employees
+            .Where(e =>
+                e.FirstName.ToLowerInvariant().Contains(query) ||
+                e.LastName.ToLowerInvariant().Contains(query) ||
+                $"{e.FirstName} {e.LastName}".ToLowerInvariant().Contains(query) ||
+                $"{e.Salutation} {e.FirstName} {e.LastName}".ToLowerInvariant().Contains(query))
+            .Take(5)
+            .ToList();
+    }
+
+    private void HandleSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            PerformSearch();
+        }
+    }
+
+    private void ViewEmployee(Employee employee)
+    {
+        selectedEmployee = employee;
+        showViewModal = true;
+    }
+
+    private void CloseViewModal()
+    {
+        showViewModal = false;
+        selectedEmployee = null;
+    }
+
+    private void PrintCertificate(Employee employee)
+    {
+        // TODO: Implement print functionality later
+        // For now, just show an alert or placeholder
+    }
+}

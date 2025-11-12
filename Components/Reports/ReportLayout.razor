@@ -1,0 +1,45 @@
+@using Microsoft.AspNetCore.Components
+@namespace Web_JbcHrms.Components.Reports
+
+<div class="report-a4">
+    <header class="report-header d-flex justify-content-center align-items-center">
+        <div class="report-logo">
+            <img src="/images/logo.svg" alt="JB Connect Ltd Logo" class="report-logo-img" />
+        </div>
+    </header>
+
+    <section class="report-body">
+        @ChildContent
+    </section>
+
+    <footer class="report-footer">
+        @if (!string.IsNullOrWhiteSpace(FooterAddress))
+        {
+            <p class="mb-0">@FooterAddress</p>
+        }
+        @if (!string.IsNullOrWhiteSpace(FooterContact))
+        {
+            <p class="mb-0">@FooterContact</p>
+        }
+    </footer>
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string CompanyName { get; set; } = "JB Connect Ltd";
+
+    [Parameter]
+    public string Tagline { get; set; } = "Human Resources & Administration";
+
+    [Parameter]
+    public string LogoUrl { get; set; } = string.Empty;
+
+    [Parameter]
+    public string FooterAddress { get; set; } = "House 12, Road 5, Banani, Dhaka 1213";
+
+    [Parameter]
+    public string FooterContact { get; set; } = "Phone: +8801601699646 | Email: hr@jbc-ltd.com";
+}
