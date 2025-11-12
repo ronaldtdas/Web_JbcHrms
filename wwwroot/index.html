@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>JB Connect Ltd. - HRMS</title>
-    <base href="/" />
+    <base href="./" />
     <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css" />
     <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css" />
@@ -30,19 +30,40 @@
         <a class="dismiss">🗙</a>
     </div>
     <script>
-        window.openFileDialog = function() {
-            document.getElementById('fileInput').click();
-        }
-        window.readFile = function() {
-            var input = document.getElementById('fileInput');
-            if (input.files.length > 0) {
-                var file = input.files[0];
-                var reader = new FileReader();
-                reader.onload = function(e) {
-                    DotNet.invokeMethodAsync('Web_JbcHrms', 'ReceiveFileContent', e.target.result, file.name);
-                };
-                reader.readAsText(file);
+        window.openFileDialog = function(inputId) {
+            var input = document.getElementById(inputId);
+            if (!input) {
+                console.warn('openFileDialog: element with id "' + inputId + '" was not found.');
+                return;
             }
+            input.click();
+        }
+        window.readFile = function(inputId, dotNetReference) {
+            var input = document.getElementById(inputId);
+            if (!input) {
+                console.warn('readFile: element with id "' + inputId + '" was not found.');
+                return;
+            }
+            if (!input.files || input.files.length === 0) {
+                console.warn('readFile: no files were selected for input id "' + inputId + '".');
+                return;
+            }
+            if (!dotNetReference) {
+                console.warn('readFile: missing dotNetReference for input id "' + inputId + '".');
+                return;
+            }
+            var file = input.files[0];
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                dotNetReference.invokeMethodAsync('ReceiveFileContent', e.target.result, file.name)
+                    .catch(function(error) {
+                        console.error('readFile: failed to pass file content to .NET', error);
+                    });
+            };
+            reader.onerror = function(error) {
+                console.error('readFile: unable to read file', error);
+            };
+            reader.readAsText(file);
         }
         window.initDataTable = function(tableId) {
             var tableSelector = tableId ? '#' + tableId : '#employeeTable';

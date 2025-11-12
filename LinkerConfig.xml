@@ -1,0 +1,5 @@
+<linker>
+  <assembly fullname="Web_JbcHrms">
+    <type fullname="Web_JbcHrms.Models.Employee" preserve="all" />
+  </assembly>
+</linker>

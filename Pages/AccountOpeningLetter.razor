@@ -6,9 +6,16 @@
 @using System.IO
 @using System.Linq
 @using System.Text.Json
+@using Microsoft.JSInterop
 @inject IJSRuntime JSRuntime
+@implements IDisposable
 
 <h3>Account Opening Letter</h3>
+
+@if (!string.IsNullOrEmpty(importError))
+{
+    <div class="alert alert-danger">@importError</div>
+}
 
 <style>
 .custom-checkbox {
@@ -23,7 +30,7 @@
 </style>
 
 <div class="mb-3">
-    <input type="file" id="fileInput" accept=".csv" style="display:none" @onchange="HandleFileChange" />
+    <input type="file" id="@FileInputId" accept=".csv" style="display:none" @onchange="HandleFileChange" />
 
     @if (employees == null)
     {
@@ -177,28 +184,23 @@
 </div>
 
 @code {
+    private const string FileInputId = "accountLetterFileInput";
     private List<Employee>? employees;
-    private static Action<string, string>? OnFileReceived;
     private bool dataTableInitialized = false;
+    private DotNetObjectReference<AccountOpeningLetter>? dotNetReference;
     private HashSet<Employee> selectedEmployees = new HashSet<Employee>();
     private bool allChecked = false;
     private List<Employee> printEmployees = new();
     private DateTime printGeneratedAt = DateTime.Now;
+    private string? importError;
+
+    protected override void OnInitialized()
+    {
+        dotNetReference = DotNetObjectReference.Create(this);
+    }
 
     protected override async Task OnInitializedAsync()
     {
-        OnFileReceived = async (content, fileName) =>
-        {
-            using var csv = new CsvReader(new StringReader(content), CultureInfo.InvariantCulture);
-            employees = csv.GetRecords<Employee>().ToList();
-            selectedEmployees.Clear();
-            allChecked = false;
-            printEmployees.Clear();
-            await SaveToLocalStorage();
-            dataTableInitialized = false;
-            StateHasChanged();
-        };
-
         await LoadFromLocalStorage();
     }
 
@@ -213,12 +215,17 @@
 
     private async Task ChooseFile()
     {
-        await JSRuntime.InvokeVoidAsync("openFileDialog");
+        await JSRuntime.InvokeVoidAsync("openFileDialog", FileInputId);
     }
 
     private async Task HandleFileChange()
     {
-        await JSRuntime.InvokeVoidAsync("readFile");
+        if (dotNetReference is null)
+        {
+            return;
+        }
+
+        await JSRuntime.InvokeVoidAsync("readFile", FileInputId, dotNetReference);
     }
 
     private async Task SaveToLocalStorage()
@@ -232,6 +239,7 @@
 
     private async Task LoadFromLocalStorage()
     {
+        importError = null;
         var json = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "employees");
         if (!string.IsNullOrEmpty(json))
         {
@@ -240,9 +248,25 @@
     }
 
     [JSInvokable]
-    public static void ReceiveFileContent(string content, string fileName)
+    public async Task ReceiveFileContent(string content, string fileName)
     {
-        OnFileReceived?.Invoke(content, fileName);
+        try
+        {
+            using var csv = new CsvReader(new StringReader(content), CultureInfo.InvariantCulture);
+            employees = csv.GetRecords<Employee>().ToList();
+            selectedEmployees.Clear();
+            allChecked = false;
+            printEmployees.Clear();
+            importError = null;
+            await SaveToLocalStorage();
+            dataTableInitialized = false;
+        }
+        catch (Exception ex)
+        {
+            importError = $"Unable to process CSV: {ex.Message}";
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private bool GetEmployeeSelection(Employee employee)
@@ -325,5 +349,10 @@
     {
         bool isChecked = e.Value is bool value && value;
         SetEmployeeSelection(employee, isChecked);
+    }
+
+    public void Dispose()
+    {
+        dotNetReference?.Dispose();
     }
 }
