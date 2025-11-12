@@ -4,10 +4,13 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Web_JbcHrms</title>
+    <title>JB Connect Ltd. - HRMS</title>
     <base href="/" />
     <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css" />
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css" />
     <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="css/report.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="Web_JbcHrms.styles.css" rel="stylesheet" />
 </head>
@@ -26,6 +29,120 @@
         <a href="" class="reload">Reload</a>
         <a class="dismiss">🗙</a>
     </div>
+    <script>
+        window.openFileDialog = function() {
+            document.getElementById('fileInput').click();
+        }
+        window.readFile = function() {
+            var input = document.getElementById('fileInput');
+            if (input.files.length > 0) {
+                var file = input.files[0];
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    DotNet.invokeMethodAsync('Web_JbcHrms', 'ReceiveFileContent', e.target.result, file.name);
+                };
+                reader.readAsText(file);
+            }
+        }
+        window.initDataTable = function(tableId) {
+            var tableSelector = tableId ? '#' + tableId : '#employeeTable';
+            
+            if ($.fn.DataTable.isDataTable(tableSelector)) {
+                $(tableSelector).DataTable().destroy();
+            }
+            
+            var config = {
+                responsive: true,
+                scrollX: false,
+                autoWidth: false,
+                scrollCollapse: true
+            };
+            
+            if (tableId === 'accountLetterTable') {
+                // Configuration for Account Opening Letter table
+                config.order = [[3, 'desc']]; // Sort by Joining Date (column 3) descending
+                config.columnDefs = [
+                    { orderable: false, targets: 0 }, // Disable sorting on checkbox column
+                    { responsivePriority: 1, targets: 1 }, // Name column priority
+                    { responsivePriority: 2, targets: 3 }, // Joining Date column priority
+                    { responsivePriority: 3, targets: 2 }  // Designation column priority
+                ];
+            } else {
+                // Configuration for Employee table
+                config.columnDefs = [
+                    { responsivePriority: 1, targets: 0 },
+                    { responsivePriority: 2, targets: 2 },
+                    { responsivePriority: 3, targets: 3 }
+                ];
+            }
+            
+            $(tableSelector).DataTable(config);
+        }
+        window.downloadUpdatedCsv = function(csvContent, fileName) {
+            var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            var url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'updated_' + fileName);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        window.printReport = function(elementId, title) {
+            var sourceElement = document.getElementById(elementId);
+            if (!sourceElement) {
+                console.warn('printReport: element with id "' + elementId + '" was not found.');
+                return;
+            }
+
+            var clone = sourceElement.cloneNode(true);
+            clone.style.removeProperty('display');
+            clone.classList.remove('d-none', 'visually-hidden');
+
+            var printWindow = window.open('', '_blank', 'width=1024,height=768');
+            var documentTitle = title || 'Report';
+            var html = `<!DOCTYPE html>
+<html>
+<head>
+    <title>${documentTitle}</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="css/report.css" />
+</head>
+<body>
+    ${clone.outerHTML}
+    <script>
+        window.onload = function() {
+            window.focus();
+            window.print();
+            setTimeout(function() { window.close(); }, 200);
+        };
+    <\/script>
+</body>
+</html>`;
+
+            printWindow.document.open();
+            printWindow.document.write(html);
+            printWindow.document.close();
+        }
+        window.showModal = function(modalId) {
+            var modal = new bootstrap.Modal(document.getElementById(modalId));
+            modal.show();
+        }
+        window.hideModal = function(modalId) {
+            var modalElement = document.getElementById(modalId);
+            var modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.hide();
+            }
+        }
+    </script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 

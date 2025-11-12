@@ -1,0 +1,478 @@
+@page "/employees"
+
+@using Web_JbcHrms.Models
+@using CsvHelper
+@using System.Globalization
+@using System.IO
+@using System.Linq
+@using System.Text.Json
+@inject IJSRuntime JSRuntime
+
+<h3>Employees</h3>
+
+@if (!string.IsNullOrEmpty(lastFileName))
+{
+    <div class="alert alert-info">
+        <strong>Last imported file:</strong> @lastFileName
+    </div>
+}
+
+<div class="mb-3">
+    <input type="file" id="fileInput" accept=".csv" style="display:none" @onchange="HandleFileChange" />
+
+    @if (employees == null)
+    {
+        <button @onclick="ChooseFile" class="btn btn-primary">Choose File</button>
+    }
+    else
+    {
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <button @onclick="ReplaceFile" class="btn btn-primary">Replace File</button>
+                <button @onclick="SyncData" class="btn btn-secondary ms-2">Sync Data</button>
+                <button @onclick="ClearData" class="btn btn-danger ms-2">Clear Data</button>
+            </div>
+            @if (employees != null && employees.Any())
+            {
+                <div>
+                    <button class="btn btn-success" @onclick="DownloadCsv">Download CSV</button>
+                </div>
+            }
+        </div>
+        @if (lastUpdated.HasValue)
+        {
+            <div class="text-muted mt-2">
+                Last updated: @lastUpdated.Value.ToString("dd MMMM, yyyy hh:mm tt")
+            </div>
+        }
+    }
+</div>
+
+@if (employees != null && employees.Any())
+{
+    <div class="table-responsive">
+        <table id="employeeTable" class="table table-striped table-bordered table-hover w-100">
+            <thead class="table-dark">
+                <tr>
+                    <th>Name</th>
+                    <th>Designation</th>
+                    <th>JoiningDate</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var emp in employees)
+                {
+                    <tr>
+                        <td>@emp.Salutation @emp.FirstName @emp.LastName</td>
+                        <td>@emp.Designation</td>
+                        <td>@emp.JoiningDate.ToString("dd MMMM, yyyy")</td>
+                        <td>
+                            <button class="btn btn-sm btn-info me-1" @onclick="() => ViewEmployee(emp)">View</button>
+                            <button class="btn btn-sm btn-warning" @onclick="() => EditEmployee(emp)">Edit</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<!-- View Employee Modal -->
+@if (showViewModal && selectedEmployee != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">View Employee Details</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseViewModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>Employee ID:</strong> @selectedEmployee.EmployeeID</div>
+                        <div class="col-md-6"><strong>Salutation:</strong> @selectedEmployee.Salutation</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>First Name:</strong> @selectedEmployee.FirstName</div>
+                        <div class="col-md-6"><strong>Last Name:</strong> @selectedEmployee.LastName</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>Designation:</strong> @selectedEmployee.Designation</div>
+                        <div class="col-md-6"><strong>Joining Date:</strong> @selectedEmployee.JoiningDate.ToString("dd MMMM, yyyy")</div>
+                    </div>
+                    <hr />
+                    <h6 class="text-primary">Salary Details</h6>
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>Gross:</strong> @selectedEmployee.Gross.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Basic Salary:</strong> @selectedEmployee.BasicSalary.ToString("N2") ৳</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>House Allowance:</strong> @selectedEmployee.HouseAllowance.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Medical Allowance:</strong> @selectedEmployee.MedicalAllowance.ToString("N2") ৳</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>Travel Allowance:</strong> @selectedEmployee.TravelAllowance.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Transport Allowance:</strong> @selectedEmployee.TransportAllowance.ToString("N2") ৳</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>Performance Allowance:</strong> @selectedEmployee.PerformanceAllowance.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Miscellaneous:</strong> @selectedEmployee.Miscellaneous.ToString("N2") ৳</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-6"><strong>Monthly Tax Deduction:</strong> @selectedEmployee.MonthlyTaxDeduction.ToString("N2") ৳</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseViewModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Edit Employee Modal -->
+@if (showEditModal && editEmployee != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">Edit Employee Details</h5>
+                    <button type="button" class="btn-close" @onclick="CloseEditModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Employee ID</label>
+                            <input type="number" class="form-control" @bind="editEmployee.EmployeeID" disabled />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Salutation</label>
+                            <input type="text" class="form-control" @bind="editEmployee.Salutation" />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">First Name</label>
+                            <input type="text" class="form-control" @bind="editEmployee.FirstName" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" class="form-control" @bind="editEmployee.LastName" />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Designation</label>
+                            <input type="text" class="form-control" @bind="editEmployee.Designation" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Joining Date</label>
+                            <input type="date" class="form-control" @bind="editEmployee.JoiningDate" />
+                        </div>
+                    </div>
+                    <hr />
+                    <h6 class="text-primary">Salary Details</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Gross</label>
+                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.Gross" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Basic Salary</label>
+                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.BasicSalary" />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">House Allowance</label>
+                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.HouseAllowance" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Medical Allowance</label>
+                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.MedicalAllowance" />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Travel Allowance</label>
+                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.TravelAllowance" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Transport Allowance</label>
+                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.TransportAllowance" />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Performance Allowance</label>
+                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.PerformanceAllowance" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Miscellaneous</label>
+                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.Miscellaneous" />
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Monthly Tax Deduction</label>
+                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.MonthlyTaxDeduction" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseEditModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveEmployee">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Confirmation Dialog -->
+@if (showConfirmationDialog)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header @(updateSuccess ? "bg-success" : "bg-danger") text-white">
+                    <h5 class="modal-title">@(updateSuccess ? "Success" : "Error")</h5>
+                </div>
+                <div class="modal-body">
+                    <p>@confirmationMessage</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="CloseConfirmationDialog">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Employee>? employees;
+    private string? lastFileName;
+    private static Action<string, string>? OnFileReceived;
+    private bool dataTableInitialized = false;
+
+    // Modal states
+    private bool showViewModal = false;
+    private bool showEditModal = false;
+    private bool showConfirmationDialog = false;
+    private Employee? selectedEmployee;
+    private Employee? editEmployee;
+    private Employee? originalEmployee;
+    private DateTime? lastUpdated;
+    private bool updateSuccess = false;
+    private string confirmationMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        OnFileReceived = async (content, fileName) =>
+        {
+            lastFileName = fileName;
+            using var csv = new CsvReader(new StringReader(content), CultureInfo.InvariantCulture);
+            employees = csv.GetRecords<Employee>().ToList();
+            lastUpdated = DateTime.Now;
+            await SaveToLocalStorage();
+            dataTableInitialized = false;
+            StateHasChanged();
+        };
+
+        await LoadFromLocalStorage();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!dataTableInitialized && employees != null && employees.Any())
+        {
+            await JSRuntime.InvokeVoidAsync("initDataTable", "employeeTable");
+            dataTableInitialized = true;
+        }
+    }
+
+    private async Task ChooseFile()
+    {
+        await JSRuntime.InvokeVoidAsync("openFileDialog");
+    }
+
+    private async Task ReplaceFile()
+    {
+        await JSRuntime.InvokeVoidAsync("openFileDialog");
+    }
+
+    private async Task HandleFileChange()
+    {
+        await JSRuntime.InvokeVoidAsync("readFile");
+    }
+
+    private async Task SyncData()
+    {
+        await LoadFromLocalStorage();
+        dataTableInitialized = false;
+        StateHasChanged();
+    }
+
+    private async Task ClearData()
+    {
+        employees = null;
+        lastFileName = null;
+        lastUpdated = null;
+        dataTableInitialized = false;
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "employees");
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "lastFileName");
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "lastUpdated");
+    }
+
+    private async Task SaveToLocalStorage()
+    {
+        if (employees != null)
+        {
+            var json = JsonSerializer.Serialize(employees);
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "employees", json);
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "lastFileName", lastFileName ?? "");
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "lastUpdated", lastUpdated?.ToString("o") ?? "");
+        }
+    }
+
+    private async Task LoadFromLocalStorage()
+    {
+        var json = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "employees");
+        if (!string.IsNullOrEmpty(json))
+        {
+            employees = JsonSerializer.Deserialize<List<Employee>>(json);
+        }
+        lastFileName = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "lastFileName");
+        var lastUpdatedValue = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "lastUpdated");
+        if (!string.IsNullOrEmpty(lastUpdatedValue) && DateTime.TryParse(lastUpdatedValue, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsedLastUpdated))
+        {
+            lastUpdated = parsedLastUpdated.ToLocalTime();
+        }
+        else
+        {
+            lastUpdated = null;
+        }
+    }
+
+    [JSInvokable]
+    public static void ReceiveFileContent(string content, string fileName)
+    {
+        OnFileReceived?.Invoke(content, fileName);
+    }
+
+    private void ViewEmployee(Employee employee)
+    {
+        selectedEmployee = employee;
+        showViewModal = true;
+    }
+
+    private void CloseViewModal()
+    {
+        showViewModal = false;
+        selectedEmployee = null;
+    }
+
+    private void EditEmployee(Employee employee)
+    {
+        originalEmployee = employee;
+        // Create a copy for editing
+        editEmployee = new Employee
+        {
+            EmployeeID = employee.EmployeeID,
+            Salutation = employee.Salutation,
+            FirstName = employee.FirstName,
+            LastName = employee.LastName,
+            JoiningDate = employee.JoiningDate,
+            Designation = employee.Designation,
+            Gross = employee.Gross,
+            BasicSalary = employee.BasicSalary,
+            HouseAllowance = employee.HouseAllowance,
+            MedicalAllowance = employee.MedicalAllowance,
+            TravelAllowance = employee.TravelAllowance,
+            Miscellaneous = employee.Miscellaneous,
+            TransportAllowance = employee.TransportAllowance,
+            PerformanceAllowance = employee.PerformanceAllowance,
+            MonthlyTaxDeduction = employee.MonthlyTaxDeduction
+        };
+        showEditModal = true;
+    }
+
+    private void CloseEditModal()
+    {
+        showEditModal = false;
+        editEmployee = null;
+        originalEmployee = null;
+    }
+
+    private async Task SaveEmployee()
+    {
+        if (editEmployee == null || originalEmployee == null || employees == null)
+            return;
+
+        try
+        {
+            // Update the employee in the list
+            var index = employees.FindIndex(e => e.EmployeeID == editEmployee.EmployeeID);
+            if (index >= 0)
+            {
+                employees[index] = editEmployee;
+                lastUpdated = DateTime.Now;
+                
+                // Save to local storage
+                await SaveToLocalStorage();
+
+                // Close edit modal
+                showEditModal = false;
+                
+                // Show confirmation dialog
+                updateSuccess = true;
+                confirmationMessage = "Employee updated successfully. Use Download CSV to export the latest data.";
+                showConfirmationDialog = true;
+
+                // Reset the datatable to reflect changes
+                dataTableInitialized = false;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            updateSuccess = false;
+            confirmationMessage = $"Error updating employee: {ex.Message}";
+            showConfirmationDialog = true;
+        }
+    }
+
+    private async Task DownloadCsv()
+    {
+        if (employees == null || string.IsNullOrEmpty(lastFileName))
+        {
+            updateSuccess = false;
+            confirmationMessage = "No employee data available to download.";
+            showConfirmationDialog = true;
+            return;
+        }
+
+        try
+        {
+            using var writer = new StringWriter();
+            using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+            csv.WriteRecords(employees);
+            var csvContent = writer.ToString();
+
+            await JSRuntime.InvokeVoidAsync("downloadUpdatedCsv", csvContent, lastFileName);
+        }
+        catch (Exception ex)
+        {
+            updateSuccess = false;
+            confirmationMessage = $"Unable to download CSV: {ex.Message}";
+            showConfirmationDialog = true;
+        }
+    }
+
+    private void CloseConfirmationDialog()
+    {
+        showConfirmationDialog = false;
+        confirmationMessage = "";
+    }
+}

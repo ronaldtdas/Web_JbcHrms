@@ -1,0 +1,144 @@
+@page {
+    size: A4;
+    margin: 25mm;
+}
+
+.report-a4 {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 0;
+    margin: 0 auto;
+    background-color: #ffffff;
+    color: #212529;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.report-header {
+    background-color: #0d6efd;
+    border-bottom: none;
+    padding: 16px;
+    margin-bottom: 24px;
+}
+
+.report-logo-img {
+    max-height: 70px;
+    display: block;
+    margin: 0 auto;
+}
+
+.report-logo-placeholder {
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #0d6efd;
+}
+
+.report-company-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.report-tagline {
+    font-size: 0.95rem;
+    color: #6c757d;
+}
+
+.report-body {
+    flex: 1;
+    font-size: 0.96rem;
+    position: relative;
+}
+
+.report-body p {
+    margin-bottom: 0.65rem;
+    line-height: 1.6;
+}
+
+.report-section-title {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.95rem;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.35rem;
+}
+
+.report-table {
+    font-size: 0.92rem;
+}
+
+.report-table thead tr {
+    background-color: #0d6efd;
+    color: #ffffff;
+}
+
+.report-table th,
+.report-table td {
+    vertical-align: middle;
+    padding: 0.55rem 0.65rem;
+}
+
+.report-table tbody tr.report-row-empty td {
+    height: 32px;
+    background-color: #f8f9fa;
+}
+
+.report-footer {
+    border-top: 1px solid #dee2e6;
+    padding-top: 12px;
+    margin-top: 32px;
+    font-size: 0.85rem;
+    color: #6c757d;
+    text-align: center;
+}
+
+.report-annotation {
+    position: absolute;
+    right: 30px;
+    bottom: 50px;
+    font-family: 'Segoe Script', 'Brush Script MT', cursive;
+    font-size: 1.2rem;
+    color: #212529;
+    transform: rotate(-8deg);
+}
+
+.report-annotation::after {
+    content: "";
+    display: block;
+    width: 100%;
+    border-bottom: 1px solid #212529;
+    margin-top: 4px;
+}
+
+.report-meta {
+    margin-bottom: 1.5rem;
+}
+
+.report-recipient,
+.report-subject,
+.report-body-section,
+.report-closing,
+.report-signature {
+    margin-bottom: 1.35rem;
+}
+
+.report-recipient p,
+.report-signature p {
+    margin-bottom: 0.35rem;
+}
+
+.report-signature p:last-child {
+    margin-bottom: 0;
+}
+
+@media print {
+    body {
+        background-color: #ffffff;
+    }
+    .report-a4 {
+        box-shadow: none;
+    }
+}
