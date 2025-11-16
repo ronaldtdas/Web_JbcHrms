@@ -1,45 +1,40 @@
 @using Microsoft.AspNetCore.Components
 @namespace Web_JbcHrms.Components.Reports
 
-<div class="report-a4">
-    <header class="report-header d-flex justify-content-center align-items-center">
-        <div class="report-logo">
-            <img src="images/logo.svg" alt="JB Connect Ltd Logo" class="report-logo-img" />
-        </div>
-    </header>
+<div class="report-a4-container">
+    <div class="report-a4-page">
+        <header class="report-header">
+            <div class="header-content">
+                <div class="report-logo">
+                    <img src="images/logo.svg" alt="JB Connect Ltd. Logo" style="max-width: 100%; max-height: 100%;" />
+                </div>
+            </div>
+        <div class="header-divider"></div>
+        </header>
+        <section class="report-body">
+            @ChildContent
+        </section>
 
-    <section class="report-body">
-        @ChildContent
-    </section>
-
-    <footer class="report-footer">
-        @if (!string.IsNullOrWhiteSpace(FooterAddress))
-        {
-            <p class="mb-0">@FooterAddress</p>
-        }
-        @if (!string.IsNullOrWhiteSpace(FooterContact))
-        {
-            <p class="mb-0">@FooterContact</p>
-        }
-    </footer>
+        <footer class="report-footer">
+            <div class="footer-divider"></div>
+            <div class="footer-content">
+                <div class="footer-line">
+                    Registered office: Tower- 52, Level-4, Block-C, Road-11 Banani, Dhaka-1213
+                </div>
+                <div class="footer-line">
+                    Operational Office: House-61 (6&amp;7 Floor), Road-27, Block-K, Banani, Dhaka-1213
+                </div>
+                <div class="footer-line">
+                    Email: info@jbc-bd.com | Contact: +88 01601699646
+                </div>
+            </div>
+        </footer>
+    </div>
 </div>
+
+                
 
 @code {
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
-
-    [Parameter]
-    public string CompanyName { get; set; } = "JB Connect Ltd";
-
-    [Parameter]
-    public string Tagline { get; set; } = "Human Resources & Administration";
-
-    [Parameter]
-    public string LogoUrl { get; set; } = string.Empty;
-
-    [Parameter]
-    public string FooterAddress { get; set; } = "House 12, Road 5, Banani, Dhaka 1213";
-
-    [Parameter]
-    public string FooterContact { get; set; } = "Phone: +8801601699646 | Email: hr@jbc-ltd.com";
 }

@@ -20,7 +20,7 @@
 }
 
 <div class="mb-3">
-    <input type="file" id="@FileInputId" accept=".csv" style="display:none" @onchange="HandleFileChange" />
+    <input type="file" id="@FileInputId" accept=".csv" style="position: absolute; left: -9999px;" @onchange="HandleFileChange" />
 
     @if (employees == null)
     {
@@ -80,7 +80,7 @@
     </div>
 }
 
-<!-- View Employee Modal -->
+ 
 @if (showViewModal && selectedEmployee != null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -106,23 +106,23 @@
                     <hr />
                     <h6 class="text-primary">Salary Details</h6>
                     <div class="row mb-2">
-                        <div class="col-md-6"><strong>Gross:</strong> @selectedEmployee.Gross.ToString("N2") ৳</div>
-                        <div class="col-md-6"><strong>Basic Salary:</strong> @selectedEmployee.BasicSalary.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Gross:</strong> @selectedEmployee.Gross.ToString("N0") ৳</div>
+                        <div class="col-md-6"><strong>Basic Salary:</strong> @selectedEmployee.BasicSalary.ToString("N0") ৳</div>
                     </div>
                     <div class="row mb-2">
-                        <div class="col-md-6"><strong>House Allowance:</strong> @selectedEmployee.HouseAllowance.ToString("N2") ৳</div>
-                        <div class="col-md-6"><strong>Medical Allowance:</strong> @selectedEmployee.MedicalAllowance.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>House Allowance:</strong> @selectedEmployee.HouseAllowance.ToString("N0") ৳</div>
+                        <div class="col-md-6"><strong>Medical Allowance:</strong> @selectedEmployee.MedicalAllowance.ToString("N0") ৳</div>
                     </div>
                     <div class="row mb-2">
-                        <div class="col-md-6"><strong>Travel Allowance:</strong> @selectedEmployee.TravelAllowance.ToString("N2") ৳</div>
-                        <div class="col-md-6"><strong>Transport Allowance:</strong> @selectedEmployee.TransportAllowance.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Travel Allowance:</strong> @selectedEmployee.TravelAllowance.ToString("N0") ৳</div>
+                        <div class="col-md-6"><strong>Transport Allowance:</strong> @selectedEmployee.TransportAllowance.ToString("N0") ৳</div>
                     </div>
                     <div class="row mb-2">
-                        <div class="col-md-6"><strong>Performance Allowance:</strong> @selectedEmployee.PerformanceAllowance.ToString("N2") ৳</div>
-                        <div class="col-md-6"><strong>Miscellaneous:</strong> @selectedEmployee.Miscellaneous.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Performance Allowance:</strong> @selectedEmployee.PerformanceAllowance.ToString("N0") ৳</div>
+                        <div class="col-md-6"><strong>Miscellaneous:</strong> @selectedEmployee.Miscellaneous.ToString("N0") ৳</div>
                     </div>
                     <div class="row mb-2">
-                        <div class="col-md-6"><strong>Monthly Tax Deduction:</strong> @selectedEmployee.MonthlyTaxDeduction.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Monthly Tax Deduction:</strong> @selectedEmployee.MonthlyTaxDeduction.ToString("N0") ৳</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -133,7 +133,7 @@
     </div>
 }
 
-<!-- Edit Employee Modal -->
+ 
 @if (showEditModal && editEmployee != null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -179,47 +179,47 @@
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">Gross</label>
-                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.Gross" />
+                            <input type="number" step="1" class="form-control" @bind="editEmployee.Gross" />
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Basic Salary</label>
-                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.BasicSalary" />
+                            <input type="number" step="1" class="form-control" @bind="editEmployee.BasicSalary" />
                         </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">House Allowance</label>
-                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.HouseAllowance" />
+                            <input type="number" step="1" class="form-control" @bind="editEmployee.HouseAllowance" />
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Medical Allowance</label>
-                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.MedicalAllowance" />
+                            <input type="number" step="1" class="form-control" @bind="editEmployee.MedicalAllowance" />
                         </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">Travel Allowance</label>
-                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.TravelAllowance" />
+                            <input type="number" step="1" class="form-control" @bind="editEmployee.TravelAllowance" />
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Transport Allowance</label>
-                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.TransportAllowance" />
+                            <input type="number" step="1" class="form-control" @bind="editEmployee.TransportAllowance" />
                         </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">Performance Allowance</label>
-                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.PerformanceAllowance" />
+                            <input type="number" step="1" class="form-control" @bind="editEmployee.PerformanceAllowance" />
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Miscellaneous</label>
-                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.Miscellaneous" />
+                            <input type="number" step="1" class="form-control" @bind="editEmployee.Miscellaneous" />
                         </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">Monthly Tax Deduction</label>
-                            <input type="number" step="0.01" class="form-control" @bind="editEmployee.MonthlyTaxDeduction" />
+                            <input type="number" step="1" class="form-control" @bind="editEmployee.MonthlyTaxDeduction" />
                         </div>
                     </div>
                 </div>
@@ -232,7 +232,7 @@
     </div>
 }
 
-<!-- Confirmation Dialog -->
+ 
 @if (showConfirmationDialog)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -259,7 +259,7 @@
     private bool dataTableInitialized = false;
     private DotNetObjectReference<Employees>? dotNetReference;
 
-    // Modal states
+    
     private bool showViewModal = false;
     private bool showEditModal = false;
     private bool showConfirmationDialog = false;
@@ -396,7 +396,7 @@
     private void EditEmployee(Employee employee)
     {
         originalEmployee = employee;
-        // Create a copy for editing
+        
         editEmployee = new Employee
         {
             EmployeeID = employee.EmployeeID,
@@ -432,25 +432,25 @@
 
         try
         {
-            // Update the employee in the list
+            
             var index = employees.FindIndex(e => e.EmployeeID == editEmployee.EmployeeID);
             if (index >= 0)
             {
                 employees[index] = editEmployee;
                 lastUpdated = DateTime.Now;
                 
-                // Save to local storage
+                
                 await SaveToLocalStorage();
 
-                // Close edit modal
+                
                 showEditModal = false;
                 
-                // Show confirmation dialog
+                
                 updateSuccess = true;
                 confirmationMessage = "Employee updated successfully. Use Download CSV to export the latest data.";
                 showConfirmationDialog = true;
 
-                // Reset the datatable to reflect changes
+                
                 dataTableInitialized = false;
                 StateHasChanged();
             }

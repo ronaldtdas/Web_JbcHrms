@@ -1,6 +1,6 @@
 @page {
     size: A4;
-    margin: 25mm;
+    margin: 0mm;
 }
 
 .report-a4 {
@@ -16,26 +16,15 @@
     flex-direction: column;
 }
 
-.report-header {
-    background-color: #0d6efd;
-    border-bottom: none;
-    padding: 16px;
-    margin-bottom: 24px;
-}
+ 
 
 .report-logo-img {
     max-height: 70px;
     display: block;
     margin: 0 auto;
+    padding-bottom: 20px;
 }
 
-.report-logo-placeholder {
-    font-size: 1.5rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: #0d6efd;
-}
 
 .report-company-name {
     font-size: 1.5rem;
@@ -49,7 +38,7 @@
 
 .report-body {
     flex: 1;
-    font-size: 0.96rem;
+    font-size: 11pt;
     position: relative;
 }
 
@@ -71,8 +60,8 @@
 }
 
 .report-table thead tr {
-    background-color: #0d6efd;
-    color: #ffffff;
+    background-color: white;
+    color: black;
 }
 
 .report-table th,
@@ -87,7 +76,6 @@
 }
 
 .report-footer {
-    border-top: 1px solid #dee2e6;
     padding-top: 12px;
     margin-top: 32px;
     font-size: 0.85rem;
@@ -137,8 +125,154 @@
 @media print {
     body {
         background-color: #ffffff;
+        /* Remove default browser margins in print preview. Note: some printers still enforce a non-printable area. */
+        margin: 0 !important;
+        padding: 0 !important;
     }
-    .report-a4 {
-        box-shadow: none;
+    
+    .report-a4,
+    .report-a4-page,
+    .report-a4-container {
+        box-shadow: none !important;
+        border: none !important;
+        background: none !important;
+          margin: 0 !important;
+          width: 210mm !important;
+          
+          min-height: 297mm !important;
     }
+
+    
+    .report-footer .footer-line {
+        color: #777777 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    
+    .report-a4-page {
+        
+        display: block !important;
+        justify-content: normal !important;
+          position: relative !important;
+          min-height: 297mm !important;
+          height: 297mm !important; /* Force one full page height so footer anchors to page bottom. */
+          
+          page-break-after: auto;
+        box-sizing: border-box !important;
+    }
+
+    
+    .report-footer {
+        -webkit-region-break-inside: avoid !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        
+        position: absolute !important;
+        left: 12.9mm !important;
+        right: 12.9mm !important;
+        bottom: 0 !important;
+        width: auto !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        
+        height: 21.05mm !important;
+    }
+    
+    .report-a4-container {
+        padding: 0 !important;
+    }
+
+    
+    .report-table tr, .report-table tbody, .report-table thead, .report-table td, .report-table th {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    
+    .report-body {
+        padding-bottom: 19.05mm !important; /* match footer height */
+    }
+}
+
+ 
+.report-a4-container {
+    background-color: #f5f5f5;
+    padding: 20px;
+    font-family: Arial, Helvetica, sans-serif;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.report-a4-page {
+    width: 210mm;
+    min-height: 297mm;
+    background-color: #ffffff;
+    /* remove border and shadow; on-screen we'll keep the page-sized layout without a chrome border */
+    border: none;
+    border-bottom: none;
+    box-shadow: none;
+    display:flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    box-sizing: border-box;
+    padding: 16.37mm 12.9mm 19.05mm 12.9mm;
+}
+
+.report-header {
+    width: 100%;
+    height: 16.37mm;
+    box-sizing: border-box;
+}
+
+.report-header .header-content {
+    display: flex;
+    justify-content: flex-end;
+    height: 12.7mm;
+}
+
+.report-header .report-logo {
+    width: 47.36mm;
+    height: 12.70mm;
+    border: 1pt none Black;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9pt;
+    color: #888;
+    overflow: hidden;
+}
+
+.report-header .header-divider,
+.report-footer .footer-divider {
+    border-top: 1px solid #dee2e6;
+    height: 0;
+    margin-top: 6px;
+}
+
+.report-footer {
+    width: 100%;
+    height: 19.05mm;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+.report-footer .footer-content {
+    min-height: 15.24mm;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.report-footer .footer-line {
+    font-family: Arial;
+    font-size: 8pt;
+    font-weight: 400;
+    color: #777777;
+    text-align: center;
 }

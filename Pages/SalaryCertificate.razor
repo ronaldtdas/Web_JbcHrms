@@ -14,7 +14,7 @@
             <div class="text-center mb-5">
                 <h2 class="mb-4">Salary Certificate</h2>
 
-                <!-- Search Bar -->
+                
                 <div class="search-container mb-4">
                     <div class="input-group input-group-lg">
                         <input type="text" class="form-control" placeholder="Search employees by name..." @bind="searchQuery" @bind:event="oninput" @onkeydown="HandleSearchKeyDown" />
@@ -24,7 +24,7 @@
                     </div>
                 </div>
 
-                <!-- Search Results -->
+                
                 @if (searchResults != null && searchResults.Any())
                 {
                     <div class="search-results">
@@ -61,7 +61,7 @@
     </div>
 </div>
 
-<!-- View Employee Modal -->
+ 
 @if (showViewModal && selectedEmployee != null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -87,23 +87,23 @@
                     <hr />
                     <h6 class="text-primary">Salary Details</h6>
                     <div class="row mb-2">
-                        <div class="col-md-6"><strong>Gross:</strong> @selectedEmployee.Gross.ToString("N2") ৳</div>
-                        <div class="col-md-6"><strong>Basic Salary:</strong> @selectedEmployee.BasicSalary.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Gross:</strong> @selectedEmployee.Gross.ToString("N0") ৳</div>
+                        <div class="col-md-6"><strong>Basic Salary:</strong> @selectedEmployee.BasicSalary.ToString("N0") ৳</div>
                     </div>
                     <div class="row mb-2">
-                        <div class="col-md-6"><strong>House Allowance:</strong> @selectedEmployee.HouseAllowance.ToString("N2") ৳</div>
-                        <div class="col-md-6"><strong>Medical Allowance:</strong> @selectedEmployee.MedicalAllowance.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>House Allowance:</strong> @selectedEmployee.HouseAllowance.ToString("N0") ৳</div>
+                        <div class="col-md-6"><strong>Medical Allowance:</strong> @selectedEmployee.MedicalAllowance.ToString("N0") ৳</div>
                     </div>
                     <div class="row mb-2">
-                        <div class="col-md-6"><strong>Travel Allowance:</strong> @selectedEmployee.TravelAllowance.ToString("N2") ৳</div>
-                        <div class="col-md-6"><strong>Transport Allowance:</strong> @selectedEmployee.TransportAllowance.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Travel Allowance:</strong> @selectedEmployee.TravelAllowance.ToString("N0") ৳</div>
+                        <div class="col-md-6"><strong>Transport Allowance:</strong> @selectedEmployee.TransportAllowance.ToString("N0") ৳</div>
                     </div>
                     <div class="row mb-2">
-                        <div class="col-md-6"><strong>Performance Allowance:</strong> @selectedEmployee.PerformanceAllowance.ToString("N2") ৳</div>
-                        <div class="col-md-6"><strong>Miscellaneous:</strong> @selectedEmployee.Miscellaneous.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Performance Allowance:</strong> @selectedEmployee.PerformanceAllowance.ToString("N0") ৳</div>
+                        <div class="col-md-6"><strong>Miscellaneous:</strong> @selectedEmployee.Miscellaneous.ToString("N0") ৳</div>
                     </div>
                     <div class="row mb-2">
-                        <div class="col-md-6"><strong>Monthly Tax Deduction:</strong> @selectedEmployee.MonthlyTaxDeduction.ToString("N2") ৳</div>
+                        <div class="col-md-6"><strong>Monthly Tax Deduction:</strong> @selectedEmployee.MonthlyTaxDeduction.ToString("N0") ৳</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -176,7 +176,6 @@
 
     private void PrintCertificate(Employee employee)
     {
-        // TODO: Implement print functionality later
-        // For now, just show an alert or placeholder
+        
     }
 }
