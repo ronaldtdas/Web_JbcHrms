@@ -10,13 +10,13 @@ public class Employee
     public required string LastName { get; set; }
     public DateTime JoiningDate { get; set; }
     public required string Designation { get; set; }
-    public decimal Gross { get; set; }
-    public decimal BasicSalary { get; set; }
-    public decimal HouseAllowance { get; set; }
-    public decimal MedicalAllowance { get; set; }
-    public decimal TravelAllowance { get; set; }
-    public decimal Miscellaneous { get; set; }
-    public decimal TransportAllowance { get; set; }
-    public decimal PerformanceAllowance { get; set; }
-    public decimal MonthlyTaxDeduction { get; set; }
+    public int Gross { get; set; }
+    public int BasicSalary { get; set; }
+    public int HouseAllowance { get; set; }
+    public int MedicalAllowance { get; set; }
+    public int TravelAllowance { get; set; }
+    public int Miscellaneous { get; set; }
+    public int TransportAllowance { get; set; }
+    public int PerformanceAllowance { get; set; }
+    public int MonthlyTaxDeduction { get; set; }
 }

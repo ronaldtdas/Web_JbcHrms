@@ -109,7 +109,7 @@ code {
     color: #c02d76;
 }
 
-/* Prevent horizontal scroll on body */
+ 
 html, body {
     overflow-x: hidden;
     max-width: 100%;
@@ -120,7 +120,7 @@ html, body {
     max-width: 100%;
 }
 
-/* Responsive Table Styles */
+ 
 .table-responsive {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -132,19 +132,19 @@ html, body {
     white-space: nowrap;
 }
 
-/* Ensure DataTables wrapper doesn't cause horizontal scroll */
+ 
 .dataTables_wrapper {
     overflow-x: auto;
     max-width: 100%;
 }
 
-/* DataTables responsive adjustments */
+ 
 table.dataTable.dtr-inline.collapsed > tbody > tr > td.dtr-control:before,
 table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control:before {
     background-color: #1b6ec2;
 }
 
-/* Mobile responsiveness */
+ 
 @media (max-width: 768px) {
     .content {
         padding-top: 0.5rem;
@@ -184,4 +184,15 @@ table.dataTable.dtr-inline.collapsed > tbody > tr > th.dtr-control:before {
     .btn.ms-2 {
         margin-left: 0 !important;
     }
+}
+
+ 
+.custom-checkbox {
+    transform: scale(1.5);
+    margin: 0;
+}
+
+.checkbox-cell {
+    text-align: center;
+    vertical-align: middle;
 }

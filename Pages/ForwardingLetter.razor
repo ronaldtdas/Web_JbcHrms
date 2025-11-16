@@ -1,4 +1,4 @@
-@page "/account-opening-letter"
+@page "/forwarding-letter"
 
 @using Web_JbcHrms.Models
 @using CsvHelper
@@ -10,24 +10,12 @@
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 
-<h3>Account Opening Letter</h3>
+<h3>Forwarding Letter</h3>
 
 @if (!string.IsNullOrEmpty(importError))
 {
     <div class="alert alert-danger">@importError</div>
-}
-
-<style>
-.custom-checkbox {
-    transform: scale(1.5);
-    margin: 0;
-}
-
-.checkbox-cell {
-    text-align: center;
-    vertical-align: middle;
-}
-</style>
+} 
 
 <div class="mb-3">
     <input type="file" id="@FileInputId" accept=".csv" style="display:none" @onchange="HandleFileChange" />
@@ -84,12 +72,12 @@
     </div>
 }
 
-<!-- Print Preview Modal -->
+ 
 <div class="modal fade" id="printPreviewModal" tabindex="-1" aria-labelledby="printPreviewModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="printPreviewModalLabel">Print Preview - Account Opening Letter</h5>
+                <h5 class="modal-title" id="printPreviewModalLabel">Print Preview - Forwarding Letter</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
@@ -106,25 +94,25 @@
                         </section>
 
                         <section class="report-subject">
-                            <p class="fw-bold text-uppercase">Subject: Forwarding of Documents for Opening Salary Accounts of Newly Appointed Employees</p>
+                            <p class=""><strong>Subject:</strong> Forwarding of Documents for Opening Salary Accounts of Newly Appointed Employees</p>
                         </section>
 
                         <section class="report-body-section">
                             <p>Dear Sir,</p>
-                            <p>We are forwarding herewith the account opening forms and required documents of the following newly appointed employees of JB Connect Ltd, who have recently joined our organization.</p>
-                            <p>Kindly open Salary Accounts in their names and share the account details upon activation.</p>
+                            <p>We are forwarding herewith the account opening forms and required documents of the following newly appointed employees of <strong>JB Connect Ltd</strong>, who have recently joined our organization.</p>
+                            <p>Kindly open <strong>Salary Accounts</strong> in their names and share the account details upon activation.</p>
                         </section>
 
                         <section class="report-body-section">
                             <table class="table table-bordered report-table">
                                 <thead>
                                     <tr>
-                                        <th scope="col">Sl</th>
+                                        <th scope="col">SL</th>
                                         <th scope="col">ID</th>
                                         <th scope="col">Name</th>
                                         <th scope="col">Designation</th>
                                         <th scope="col">Joining Date</th>
-                                        <th scope="col">Salary</th>
+                                        <th scope="col">Salary (BDT)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -139,7 +127,7 @@
                                                 <td>@employee.Salutation @employee.FirstName @employee.LastName</td>
                                                 <td>@employee.Designation</td>
                                                 <td>@employee.JoiningDate.ToString("dd MMM yyyy")</td>
-                                                <td>@employee.Gross.ToString("N2") BDT</td>
+                                                <td class="text-center">@employee.Gross.ToString("N0")</td>
                                             </tr>
                                         }
                                     }
@@ -154,22 +142,18 @@
                         </section>
 
                         <section class="report-closing">
-                            <p>Kindly do the needful and confirm once the accounts have been opened.</p>
-                            <p>Thanking you for your cooperation.</p>
+                            <p>Kindly do the needful and confirm once the accounts have been opened. Thanking you for your co-operation.</p>
                             <p>Regards,</p>
                         </section>
 
                         <section class="report-signature">
                             <p class="mb-0">Tanzima Chowdhury</p>
                             <p class="mb-0">Manager (HR &amp; Admin)</p>
-                            <p class="mb-0">JB Connect Ltd</p>
+                            <p class="mb-0">JB Connect Ltd.</p>
                             <p class="mb-0">Phone: +8801601699646</p>
                             <p class="mb-0">Email: hr@jbc-ltd.com</p>
                         </section>
 
-                        <div class="report-annotation">
-                            I need it urgent
-                        </div>
                     </ReportLayout>
                 </div>
             </div>
@@ -187,7 +171,7 @@
     private const string FileInputId = "accountLetterFileInput";
     private List<Employee>? employees;
     private bool dataTableInitialized = false;
-    private DotNetObjectReference<AccountOpeningLetter>? dotNetReference;
+    private DotNetObjectReference<ForwardingLetter>? dotNetReference;
     private HashSet<Employee> selectedEmployees = new HashSet<Employee>();
     private bool allChecked = false;
     private List<Employee> printEmployees = new();
@@ -342,7 +326,7 @@
     {
         await JSRuntime.InvokeVoidAsync("hideModal", "printPreviewModal");
         await Task.Delay(100);
-        await JSRuntime.InvokeVoidAsync("printReport", "accountOpeningLetterPrint", "Account Opening Letter");
+    await JSRuntime.InvokeVoidAsync("printReport", "accountOpeningLetterPrint", "Forwarding Letter");
     }
 
     private void HandleCheckboxChange(Employee employee, ChangeEventArgs e)

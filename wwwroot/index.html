@@ -80,16 +80,16 @@
             };
             
             if (tableId === 'accountLetterTable') {
-                // Configuration for Account Opening Letter table
-                config.order = [[3, 'desc']]; // Sort by Joining Date (column 3) descending
+                
+                config.order = [[3, 'desc']];
                 config.columnDefs = [
-                    { orderable: false, targets: 0 }, // Disable sorting on checkbox column
-                    { responsivePriority: 1, targets: 1 }, // Name column priority
-                    { responsivePriority: 2, targets: 3 }, // Joining Date column priority
-                    { responsivePriority: 3, targets: 2 }  // Designation column priority
+                    { orderable: false, targets: 0 },
+                    { responsivePriority: 1, targets: 1 },
+                    { responsivePriority: 2, targets: 3 },
+                    { responsivePriority: 3, targets: 2 }
                 ];
             } else {
-                // Configuration for Employee table
+                
                 config.columnDefs = [
                     { responsivePriority: 1, targets: 0 },
                     { responsivePriority: 2, targets: 2 },
