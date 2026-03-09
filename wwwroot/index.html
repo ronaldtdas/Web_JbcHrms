@@ -122,31 +122,37 @@
             clone.classList.remove('d-none', 'visually-hidden');
 
             var printWindow = window.open('', '_blank', 'width=1024,height=768');
+            if (!printWindow) {
+				console.warn('printReport: unable to open print window.');
+				return;
+			}
+
             var documentTitle = title || 'Report';
-            var html = `<!DOCTYPE html>
-<html>
-<head>
-    <title>${documentTitle}</title>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
-    <link rel="stylesheet" href="css/report.css" />
-</head>
-<body>
-    ${clone.outerHTML}
-    <script>
-        window.onload = function() {
-            window.focus();
-            window.print();
-            setTimeout(function() { window.close(); }, 200);
-        };
-    <\/script>
-</body>
-</html>`;
+			var html = [
+				'<!DOCTYPE html>',
+				'<html>',
+				'<head>',
+				'    <title>' + documentTitle + '</title>',
+				'    <meta charset="utf-8" />',
+				'    <meta name="viewport" content="width=device-width, initial-scale=1.0" />',
+				'    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />',
+				'    <link rel="stylesheet" href="css/report.css" />',
+				'</head>',
+				'<body>',
+				clone.outerHTML,
+				'</body>',
+				'</html>'
+			].join('\n');
 
             printWindow.document.open();
             printWindow.document.write(html);
             printWindow.document.close();
+
+			printWindow.onload = function() {
+				printWindow.focus();
+				printWindow.print();
+				setTimeout(function() { printWindow.close(); }, 200);
+			};
         }
         window.showModal = function(modalId) {
             var modal = new bootstrap.Modal(document.getElementById(modalId));
