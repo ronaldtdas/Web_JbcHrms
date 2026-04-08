@@ -6,9 +6,9 @@
 @using System.IO
 @using System.Linq
 @using System.Text.Json
+@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.JSInterop
 @inject IJSRuntime JSRuntime
-@implements IDisposable
 
 <h3>Forwarding Letter</h3>
 
@@ -18,11 +18,11 @@
 } 
 
 <div class="mb-3">
-    <input type="file" id="@FileInputId" accept=".csv" style="display:none" @onchange="HandleFileChange" />
+    <InputFile id="@FileInputId" accept=".csv" style="position: absolute; left: -9999px;" OnChange="HandleFileChange" />
 
     @if (employees == null)
     {
-        <button @onclick="ChooseFile" class="btn btn-primary">Choose File</button>
+        <label for="@FileInputId" class="btn btn-primary mb-0">Choose File</label>
     }
     else
     {
@@ -169,19 +169,14 @@
 
 @code {
     private const string FileInputId = "accountLetterFileInput";
+    private const long MaxFileSize = 10 * 1024 * 1024;
     private List<Employee>? employees;
     private bool dataTableInitialized = false;
-    private DotNetObjectReference<ForwardingLetter>? dotNetReference;
     private HashSet<Employee> selectedEmployees = new HashSet<Employee>();
     private bool allChecked = false;
     private List<Employee> printEmployees = new();
     private DateTime printGeneratedAt = DateTime.Now;
     private string? importError;
-
-    protected override void OnInitialized()
-    {
-        dotNetReference = DotNetObjectReference.Create(this);
-    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -197,19 +192,26 @@
         }
     }
 
-    private async Task ChooseFile()
+    private async Task HandleFileChange(InputFileChangeEventArgs e)
     {
-        await JSRuntime.InvokeVoidAsync("openFileDialog", FileInputId);
-    }
-
-    private async Task HandleFileChange()
-    {
-        if (dotNetReference is null)
+        var file = e.File;
+        if (file is null)
         {
             return;
         }
 
-        await JSRuntime.InvokeVoidAsync("readFile", FileInputId, dotNetReference);
+        try
+        {
+            await using var stream = file.OpenReadStream(MaxFileSize);
+            using var reader = new StreamReader(stream);
+            var content = await reader.ReadToEndAsync();
+            await ReceiveFileContent(content, file.Name);
+        }
+        catch (Exception ex)
+        {
+            importError = $"Unable to read CSV: {ex.Message}";
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private async Task SaveToLocalStorage()
@@ -231,7 +233,6 @@
         }
     }
 
-    [JSInvokable]
     public async Task ReceiveFileContent(string content, string fileName)
     {
         try
@@ -326,7 +327,7 @@
     {
         await JSRuntime.InvokeVoidAsync("hideModal", "printPreviewModal");
         await Task.Delay(100);
-    await JSRuntime.InvokeVoidAsync("printReport", "accountOpeningLetterPrint", "Forwarding Letter");
+        await JSRuntime.InvokeVoidAsync("printReport", "accountOpeningLetterPrint", "Forwarding Letter");
     }
 
     private void HandleCheckboxChange(Employee employee, ChangeEventArgs e)
@@ -335,8 +336,4 @@
         SetEmployeeSelection(employee, isChecked);
     }
 
-    public void Dispose()
-    {
-        dotNetReference?.Dispose();
-    }
 }

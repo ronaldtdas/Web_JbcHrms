@@ -114,12 +114,128 @@
     </div>
 }
 
+<div class="modal fade" id="printPreviewModal" tabindex="-1" aria-labelledby="printPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="printPreviewModalLabel">Print Preview - Salary Certificate</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <div id="salaryCertificatePrint">
+                    <ReportLayout>
+                        <section class="report-subject text-center" style="margin-top: 20px; font-size: 20px;">
+                            <p class=""><strong>SALARY CERTIFICATE</strong></p>
+                        </section>
+                        <section class="report-recipient text-end">
+                            <p>Issued Date: @printGeneratedAt.ToString("dd MMMM yyyy")</p>
+                        </section>
+
+                        <section class="report-body-section">
+                            <p>This is to certify that @printEmployee?.Salutation @printEmployee?.FirstName @printEmployee?.LastName 
+                                is a permanent employee of <strong>JB Connect Ltd.</strong>, 
+                                holding the position <strong>@printEmployee?.Designation</strong>. She joined the company on <strong>@printEmployee?.JoiningDate.ToString("dd MMMM yyyy")</strong>. 
+                                @if (printEmployee?.Salutation == "Mr.") { <span>His</span> } else { <span>Her</span> } current monthly gross salary amount is <strong>@printEmployee?.Gross.ToString("N0")/= BDT</strong>, 
+                                with an additional monthly transport allowance of <strong>@printEmployee?.TransportAllowance.ToString("N0")/= BDT</strong>. 
+                                @if (printEmployee?.Salutation == "Mr.") { <span>His</span> } else { <span>Her</span> } total monthly salary with additional Allowance (if any) is 
+                                <strong>@(((printEmployee?.Gross ?? 0) + (printEmployee?.TransportAllowance ?? 0) + (printEmployee?.PerformanceAllowance ?? 0)).ToString("N0"))/= BDT</strong>. 
+                                The current monthly salary details are as follows:</p>
+                            
+                            <table class="table table-bordered report-table">
+                                <thead>
+                                    <tr>
+                                        <th>Particulars</th>
+                                        <th>Amount (BDT)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Basic Salary</td>
+                                        <td class="text-end">@printEmployee?.BasicSalary.ToString("N2")</td>
+                                    </tr>
+                                    <tr>
+                                        <td>House Allowance</td>
+                                        <td class="text-end">@printEmployee?.HouseAllowance.ToString("N2")</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Medical Allowance</td>
+                                        <td class="text-end">@printEmployee?.MedicalAllowance.ToString("N2")</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Travel Allowance</td>
+                                        <td class="text-end">@printEmployee?.TravelAllowance.ToString("N2")</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Miscellaneous</td>
+                                        <td class="text-end">@printEmployee?.Miscellaneous.ToString("N2")</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Total Monthly Gross Salary</strong></td>
+                                        <td class="text-end"><strong>@printEmployee?.Gross.ToString("N2")</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Transport Allowance (Monthly)</td>
+                                        <td class="text-end">@printEmployee?.TransportAllowance.ToString("N2")</td>
+                                    </tr>
+                                    @if (printEmployee?.PerformanceAllowance > 0)
+                                    {
+                                        <tr>
+                                            <td>Additional [Performance/Team Lead/CR] Allowance (Monthly)</td>
+                                            <td class="text-end">@printEmployee?.PerformanceAllowance.ToString("N2")</td>
+                                        </tr>
+                                    }
+                                    <tr>
+                                        <td><strong>Total Monthly Salary</strong></td>
+                                        <td class="text-end"><strong>@(((printEmployee?.Gross ?? 0) + (printEmployee?.TransportAllowance ?? 0) + (printEmployee?.PerformanceAllowance ?? 0)).ToString("00.00"))</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Monthly Tax Deduction</td>
+                                        <td class="text-end">@printEmployee?.MonthlyTaxDeduction.ToString("N2")</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Total Monthly Salary in BDT (After Tax Deduction)</strong></td>
+                                        <td class="text-end"><strong>@(((printEmployee?.Gross ?? 0) + (printEmployee?.TransportAllowance ?? 0) + (printEmployee?.PerformanceAllowance ?? 0) - (printEmployee?.MonthlyTaxDeduction ?? 0)).ToString("N2"))</strong></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <p>Salary amount in words: <strong>@NumberToWords(((printEmployee?.Gross ?? 0) + (printEmployee?.TransportAllowance ?? 0) + (printEmployee?.PerformanceAllowance ?? 0) - (printEmployee?.MonthlyTaxDeduction ?? 0))) Taka Only (Monthly).</strong></p>
+                            <p>In addition to the monthly salary, @printEmployee?.Salutation @printEmployee?.FirstName @printEmployee?.LastName is entitled to receive two festival bonuses (Eid bonuses) and yearly performance bonus as per company policy.</p>
+                        </section>
+
+                        <section class="report-closing">
+                            <p>Sincerely,</p>
+                        </section>
+
+                        <section class="report-signature">
+                            <p class="mb-0">------------------------------</p>
+                            <p class="mb-0">Tanzima Chowdhury</p>
+                            <p class="mb-0">Manager, HR & Admin</p>
+                            <p class="mb-0">JB Connect Ltd.</p>
+                            <p class="mb-0">Contact: +8801601699646</p>
+                            <p class="mb-0">Email: hr@jbc-bd.com</p>
+                        </section>
+                    </ReportLayout>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="ConfirmPrint">
+                    <i class="bi bi-printer"></i> Print
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @code {
     private List<Employee>? employees;
     private string searchQuery = "";
     private List<Employee>? searchResults;
     private bool showViewModal = false;
     private Employee? selectedEmployee;
+    private Employee? printEmployee;
+    private DateTime printGeneratedAt = DateTime.Now;
 
     protected override async Task OnInitializedAsync()
     {
@@ -174,8 +290,42 @@
         selectedEmployee = null;
     }
 
-    private void PrintCertificate(Employee employee)
+    private async Task PrintCertificate(Employee employee)
     {
-        
+        printEmployee = employee;
+        printGeneratedAt = DateTime.Now;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(50);
+        await JSRuntime.InvokeVoidAsync("showModal", "printPreviewModal");
+    }
+
+    private async Task ConfirmPrint()
+    {
+        await JSRuntime.InvokeVoidAsync("hideModal", "printPreviewModal");
+        await Task.Delay(100);
+        await JSRuntime.InvokeVoidAsync("printReport", "salaryCertificatePrint", "Salary Certificate");
+    }
+
+    private string NumberToWords(decimal number)
+    {
+        if (number == 0) return "Zero";
+
+        string[] units = { "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine" };
+        string[] teens = { "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen" };
+        string[] tens = { "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety" };
+
+        string ConvertToWords(long n)
+        {
+            if (n < 10) return units[n];
+            if (n < 20) return teens[n - 10];
+            if (n < 100) return tens[n / 10] + (n % 10 != 0 ? " " + units[n % 10] : "");
+            if (n < 1000) return units[n / 100] + " Hundred" + (n % 100 != 0 ? " " + ConvertToWords(n % 100) : "");
+            if (n < 100000) return ConvertToWords(n / 1000) + " Thousand" + (n % 1000 != 0 ? " " + ConvertToWords(n % 1000) : "");
+            if (n < 10000000) return ConvertToWords(n / 100000) + " Lakh" + (n % 100000 != 0 ? " " + ConvertToWords(n % 100000) : "");
+            return ConvertToWords(n / 10000000) + " Crore" + (n % 10000000 != 0 ? " " + ConvertToWords(n % 10000000) : "");
+        }
+
+        long wholeNumber = (long)number;
+        return ConvertToWords(wholeNumber);
     }
 }

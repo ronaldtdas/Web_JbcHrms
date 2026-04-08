@@ -6,9 +6,9 @@
 @using System.IO
 @using System.Linq
 @using System.Text.Json
+@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.JSInterop
 @inject IJSRuntime JSRuntime
-@implements IDisposable
 
 <h3>Employees</h3>
 
@@ -20,17 +20,17 @@
 }
 
 <div class="mb-3">
-    <input type="file" id="@FileInputId" accept=".csv" style="position: absolute; left: -9999px;" @onchange="HandleFileChange" />
+    <InputFile id="@FileInputId" accept=".csv" style="position: absolute; left: -9999px;" OnChange="HandleFileChange" />
 
     @if (employees == null)
     {
-        <button @onclick="ChooseFile" class="btn btn-primary">Choose File</button>
+        <label for="@FileInputId" class="btn btn-primary mb-0">Choose File</label>
     }
     else
     {
         <div class="d-flex justify-content-between align-items-center">
             <div>
-                <button @onclick="ReplaceFile" class="btn btn-primary">Replace File</button>
+                <label for="@FileInputId" class="btn btn-primary mb-0">Replace File</label>
                 <button @onclick="SyncData" class="btn btn-secondary ms-2">Sync Data</button>
                 <button @onclick="ClearData" class="btn btn-danger ms-2">Clear Data</button>
             </div>
@@ -254,10 +254,10 @@
 
 @code {
     private const string FileInputId = "employeesFileInput";
+    private const long MaxFileSize = 10 * 1024 * 1024;
     private List<Employee>? employees;
     private string? lastFileName;
     private bool dataTableInitialized = false;
-    private DotNetObjectReference<Employees>? dotNetReference;
 
     
     private bool showViewModal = false;
@@ -269,11 +269,6 @@
     private DateTime? lastUpdated;
     private bool updateSuccess = false;
     private string confirmationMessage = "";
-
-    protected override void OnInitialized()
-    {
-        dotNetReference = DotNetObjectReference.Create(this);
-    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -289,24 +284,28 @@
         }
     }
 
-    private async Task ChooseFile()
+    private async Task HandleFileChange(InputFileChangeEventArgs e)
     {
-        await JSRuntime.InvokeVoidAsync("openFileDialog", FileInputId);
-    }
-
-    private async Task ReplaceFile()
-    {
-        await JSRuntime.InvokeVoidAsync("openFileDialog", FileInputId);
-    }
-
-    private async Task HandleFileChange()
-    {
-        if (dotNetReference is null)
+        var file = e.File;
+        if (file is null)
         {
             return;
         }
 
-        await JSRuntime.InvokeVoidAsync("readFile", FileInputId, dotNetReference);
+        try
+        {
+            await using var stream = file.OpenReadStream(MaxFileSize);
+            using var reader = new StreamReader(stream);
+            var content = await reader.ReadToEndAsync();
+            await ReceiveFileContent(content, file.Name);
+        }
+        catch (Exception ex)
+        {
+            updateSuccess = false;
+            confirmationMessage = $"Unable to read CSV: {ex.Message}";
+            showConfirmationDialog = true;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private async Task SyncData()
@@ -357,7 +356,6 @@
         }
     }
 
-    [JSInvokable]
     public async Task ReceiveFileContent(string content, string fileName)
     {
         try
@@ -496,8 +494,4 @@
         confirmationMessage = "";
     }
 
-    public void Dispose()
-    {
-        dotNetReference?.Dispose();
-    }
 }
