@@ -33,6 +33,12 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
+    # Inject Firebase Secret
+    - name: Inject Firebase Secret
+      run: |
+        sed -i 's/__FIREBASE_AUTH_KEY__/${{ secrets.FIREBASE_AUTH_KEY }}/g' wwwroot/appsettings.json
+        sed -i 's|__FIREBASE_BASE_URL__|${{ secrets.FIREBASE_BASE_URL }}|g' wwwroot/appsettings.json
+
     # Publish the site
     - name: Publish .NET Core Project
       run: dotnet publish Web_JbcHrms.csproj -c Release -o release --nologo
