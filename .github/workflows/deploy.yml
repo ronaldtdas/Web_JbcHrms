@@ -36,7 +36,6 @@ jobs:
     # Inject Firebase Secret
     - name: Inject Firebase Secret
       run: |
-        sed -i 's/__FIREBASE_AUTH_KEY__/${{ secrets.FIREBASE_AUTH_KEY }}/g' wwwroot/appsettings.json
         sed -i 's|__FIREBASE_BASE_URL__|${{ secrets.FIREBASE_BASE_URL }}|g' wwwroot/appsettings.json
         sed -i 's|__FIREBASE_API_KEY__|${{ secrets.FIREBASE_API_KEY }}|g' wwwroot/index.html
         sed -i 's|__FIREBASE_AUTH_DOMAIN__|${{ secrets.FIREBASE_AUTH_DOMAIN }}|g' wwwroot/index.html
