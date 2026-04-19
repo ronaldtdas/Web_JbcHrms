@@ -7,9 +7,10 @@
     <title>JB Connect Ltd. - HRMS</title>
     <base href="./" />
     <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css" />
-    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css" />
-    <link rel="stylesheet" href="css/app.css" />
+	<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css" />
+	<link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css" />
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+	<link rel="stylesheet" href="css/app.css" />
     <link rel="stylesheet" href="css/report.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="Web_JbcHrms.styles.css" rel="stylesheet" />
@@ -79,23 +80,29 @@
                 scrollCollapse: true
             };
             
-            if (tableId === 'accountLetterTable') {
-                
-                config.order = [[3, 'desc']];
-                config.columnDefs = [
-                    { orderable: false, targets: 0 },
-                    { responsivePriority: 1, targets: 1 },
-                    { responsivePriority: 2, targets: 3 },
-                    { responsivePriority: 3, targets: 2 }
-                ];
-            } else {
-                
-                config.columnDefs = [
-                    { responsivePriority: 1, targets: 0 },
-                    { responsivePriority: 2, targets: 2 },
-                    { responsivePriority: 3, targets: 3 }
-                ];
-            }
+			if (tableId === 'accountLetterTable') {
+
+				config.order = [[3, 'desc']];
+				config.columnDefs = [
+					{ orderable: false, targets: 0 },
+					{ responsivePriority: 1, targets: 1 },
+					{ responsivePriority: 2, targets: 3 },
+					{ responsivePriority: 3, targets: 2 }
+				];
+			} else if (tableId === 'assetTable') {
+				config.columnDefs = [
+					{ responsivePriority: 1, targets: 0 },
+					{ responsivePriority: 2, targets: -1 },
+					{ orderable: false, targets: -1 }
+				];
+			} else {
+
+				config.columnDefs = [
+					{ responsivePriority: 1, targets: 0 },
+					{ responsivePriority: 2, targets: 2 },
+					{ responsivePriority: 3, targets: 3 }
+				];
+			}
             
             $(tableSelector).DataTable(config);
         }
