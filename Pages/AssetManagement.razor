@@ -218,7 +218,7 @@
 </div>
 
 @code {
-    private string FirebaseBaseUrl => Configuration["Firebase:BaseUrl"] ?? "";
+    private string FirebaseDatabaseURL => Configuration["Firebase:DatabaseURL"] ?? "";
     private string FirebaseApiKey => Configuration["Firebase:ApiKey"] ?? "";
     private List<Asset> assets = new();
     private List<Employee> employees = new();
@@ -239,8 +239,25 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await InitFirebaseAppCheck();
         await LoadEmployees();
         await LoadAssetsFromFirebase();
+    }
+
+    private async Task InitFirebaseAppCheck()
+    {
+        var config = new
+        {
+            apiKey = Configuration["Firebase:ApiKey"],
+            authDomain = Configuration["Firebase:AuthDomain"],
+            databaseURL = Configuration["Firebase:DatabaseURL"],
+            projectId = Configuration["Firebase:ProjectId"],
+            storageBucket = Configuration["Firebase:StorageBucket"],
+            messagingSenderId = Configuration["Firebase:MessagingSenderId"],
+            appId = Configuration["Firebase:AppId"]
+        };
+        var recaptchaSiteKey = Configuration["Firebase:RecaptchaSiteKey"] ?? "6LfEsr4sAAAAADu4AmwWnhrcCr-jumEguSeDoJpt";
+        await JSRuntime.InvokeVoidAsync("initFirebaseAppCheck", config, recaptchaSiteKey);
     }
 
     private async Task LoadAssetsFromFirebase()
@@ -248,7 +265,7 @@
         try
         {
             string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
-            var request = new HttpRequestMessage(HttpMethod.Get, $"{FirebaseBaseUrl}.json?auth={FirebaseApiKey}");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{FirebaseDatabaseURL}.json?auth={FirebaseApiKey}");
             request.Headers.Add("X-Firebase-AppCheck", token);
             var response = await Http.SendAsync(request);
 
@@ -422,7 +439,7 @@
         try
         {
             string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
-            var request = new HttpRequestMessage(HttpMethod.Put, $"{FirebaseBaseUrl}/{asset.AssetTag}.json?auth={FirebaseApiKey}");
+            var request = new HttpRequestMessage(HttpMethod.Put, $"{FirebaseDatabaseURL}/{asset.AssetTag}.json?auth={FirebaseApiKey}");
             request.Headers.Add("X-Firebase-AppCheck", token);
             request.Content = JsonContent.Create(asset);
 

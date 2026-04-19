@@ -174,29 +174,28 @@
         }
     </script>
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app-check.js";
 
-        const firebaseConfig = {
-            apiKey: "__FIREBASE_API_KEY__",
-            authDomain: "__FIREBASE_AUTH_DOMAIN__",
-            databaseURL: "__FIREBASE_BASE_URL__",
-            projectId: "__FIREBASE_PROJECT_ID__",
-            storageBucket: "__FIREBASE_STORAGE_BUCKET__",
-            messagingSenderId: "__FIREBASE_MESSAGING_SENDER_ID__",
-            appId: "__FIREBASE_APP_ID__"
+        let appCheckInstance = null;
+
+        window.initFirebaseAppCheck = function(config, recaptchaKey) {
+            if (getApps().length === 0) {
+                const app = initializeApp(config);
+                appCheckInstance = initializeAppCheck(app, {
+                    provider: new ReCaptchaEnterpriseProvider(recaptchaKey),
+                    isTokenAutoRefreshEnabled: true
+                });
+            }
         };
 
-        const app = initializeApp(firebaseConfig);
-
-        const appCheck = initializeAppCheck(app, {
-            provider: new ReCaptchaEnterpriseProvider('6LfEsr4sAAAAADu4AmwWnhrcCr-jumEguSeDoJpt'),
-            isTokenAutoRefreshEnabled: true
-        });
-
         window.getRecaptchaToken = async function() {
+            if (!appCheckInstance) {
+                console.error("Firebase App Check is not initialized. Make sure to call initFirebaseAppCheck first.");
+                return null;
+            }
             try {
-                const appCheckTokenResponse = await getToken(appCheck, false);
+                const appCheckTokenResponse = await getToken(appCheckInstance, false);
                 return appCheckTokenResponse.token; 
             } catch (error) {
                 console.error("Error getting App Check token:", error);
