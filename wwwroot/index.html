@@ -14,7 +14,6 @@
     <link rel="stylesheet" href="css/report.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="Web_JbcHrms.styles.css" rel="stylesheet" />
-    <script src="https://www.google.com/recaptcha/enterprise.js?render=6LfEsr4sAAAAADu4AmwWnhrcCr-jumEguSeDoJpt"></script>
 </head>
 
 <body>
@@ -173,18 +172,37 @@
                 modal.hide();
             }
         }
-        window.getRecaptchaToken = function() {
-            return new Promise((resolve, reject) => {
-                grecaptcha.enterprise.ready(async () => {
-                    try {
-                        const token = await grecaptcha.enterprise.execute('6LfEsr4sAAAAADu4AmwWnhrcCr-jumEguSeDoJpt', {action: 'LOGIN'});
-                        resolve(token);
-                    } catch (error) {
-                        reject(error);
-                    }
-                });
-            });
-        }
+    </script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app-check.js";
+
+        const firebaseConfig = {
+            apiKey: "__FIREBASE_API_KEY__",
+            authDomain: "__FIREBASE_AUTH_DOMAIN__",
+            databaseURL: "__FIREBASE_BASE_URL__",
+            projectId: "__FIREBASE_PROJECT_ID__",
+            storageBucket: "__FIREBASE_STORAGE_BUCKET__",
+            messagingSenderId: "__FIREBASE_MESSAGING_SENDER_ID__",
+            appId: "__FIREBASE_APP_ID__"
+        };
+
+        const app = initializeApp(firebaseConfig);
+
+        const appCheck = initializeAppCheck(app, {
+            provider: new ReCaptchaEnterpriseProvider('6LfEsr4sAAAAADu4AmwWnhrcCr-jumEguSeDoJpt'),
+            isTokenAutoRefreshEnabled: true
+        });
+
+        window.getRecaptchaToken = async function() {
+            try {
+                const appCheckTokenResponse = await getToken(appCheck, false);
+                return appCheckTokenResponse.token; 
+            } catch (error) {
+                console.error("Error getting App Check token:", error);
+                return null;
+            }
+        };
     </script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
