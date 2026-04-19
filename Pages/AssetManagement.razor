@@ -247,7 +247,11 @@
     {
         try
         {
-            var response = await Http.GetAsync($"{FirebaseBaseUrl}.json?auth={FirebaseAuthKey}");
+            string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{FirebaseBaseUrl}.json?auth={FirebaseAuthKey}");
+            request.Headers.Add("X-Firebase-AppCheck", token);
+            var response = await Http.SendAsync(request);
+
             if (response.IsSuccessStatusCode)
             {
                 var dictionary = await response.Content.ReadFromJsonAsync<Dictionary<string, Asset>>();
@@ -417,7 +421,12 @@
 
         try
         {
-            var response = await Http.PutAsJsonAsync($"{FirebaseBaseUrl}/{asset.AssetTag}.json?auth={FirebaseAuthKey}", asset);
+            string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
+            var request = new HttpRequestMessage(HttpMethod.Put, $"{FirebaseBaseUrl}/{asset.AssetTag}.json?auth={FirebaseAuthKey}");
+            request.Headers.Add("X-Firebase-AppCheck", token);
+            request.Content = JsonContent.Create(asset);
+
+            var response = await Http.SendAsync(request);
             if (response.IsSuccessStatusCode)
             {
                 if (!isEditing)

@@ -184,7 +184,11 @@
     {
         try
         {
-            var response = await Http.GetAsync($"{FirebaseBaseUrl}.json?auth={FirebaseAuthKey}");
+            string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{FirebaseBaseUrl}.json?auth={FirebaseAuthKey}");
+            request.Headers.Add("X-Firebase-AppCheck", token);
+            var response = await Http.SendAsync(request);
+
             if (response.IsSuccessStatusCode)
             {
                 var dictionary = await response.Content.ReadFromJsonAsync<Dictionary<string, Asset>>();
