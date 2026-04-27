@@ -106,14 +106,20 @@
                         <label class="form-label">Asset Type</label>
                         <select class="form-select" @bind="newAssetType" @bind:after="GenerateAssetTag" disabled="@isEditing">
                             <option value="">-- Select Type --</option>
-                            <option value="Laptop">Laptop</option>
-                            <option value="Macbook">Macbook</option>
-                            <option value="Mac Mini">Mac Mini</option>
-                            <option value="Monitor">Monitor</option>
-                            <option value="Desktop">Desktop</option>
-                            <option value="Accessories">Accessories</option>
+                            @foreach (var assetType in assetTypeOptions)
+                            {
+                                <option value="@assetType">@assetType</option>
+                            }
                         </select>
                     </div>
+
+                    @if (newAssetType == "Other")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Custom Asset Type</label>
+                            <input type="text" class="form-control" @bind="customAssetType" @bind:event="oninput" @bind:after="GenerateAssetTag" placeholder="e.g. SSD Enclosure" disabled="@isEditing" />
+                        </div>
+                    }
                     
                     <div class="mb-3">
                         <label class="form-label">Asset Tag (Auto-generated)</label>
@@ -121,13 +127,55 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Model (Optional)</label>
+                        <label class="form-label">Brand</label>
+                        <select class="form-select" @bind="newBrand">
+                            <option value="">-- Select Brand --</option>
+                            @foreach (var brand in GetBrandOptions())
+                            {
+                                <option value="@brand">@brand</option>
+                            }
+                        </select>
+                    </div>
+
+                    @if (newBrand == "Other")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Custom Brand</label>
+                            <input type="text" class="form-control" @bind="customBrand" placeholder="e.g. No Brand" />
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Model</label>
                         <input type="text" class="form-control" @bind="newModel" placeholder="e.g. M1 2020" />
                     </div>
 
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">RAM</label>
+                            <select class="form-select" @bind="newRam">
+                                <option value="">-- Select RAM --</option>
+                                @foreach (var ram in ramOptions)
+                                {
+                                    <option value="@ram">@ram</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">SSD</label>
+                            <select class="form-select" @bind="newSsd">
+                                <option value="">-- Select SSD --</option>
+                                @foreach (var ssd in ssdOptions)
+                                {
+                                    <option value="@ssd">@ssd</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
-                        <label class="form-label">Config (Optional)</label>
-                        <input type="text" class="form-control" @bind="newConfig" placeholder="e.g. 16GB RAM, 512GB SSD" />
+                        <label class="form-label">Additional Config (Optional)</label>
+                        <input type="text" class="form-control" @bind="newAdditionalConfig" placeholder="e.g. Type-C Hub, Intel i7" />
                     </div>
 
                     <div class="mb-3">
@@ -172,7 +220,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @onclick="CloseAddModal">Cancel</button>
-                <button type="button" class="btn btn-primary" @onclick="SaveAsset" disabled="@string.IsNullOrWhiteSpace(newAssetType)">Save Asset</button>
+                <button type="button" class="btn btn-primary" @onclick="SaveAsset" disabled="@string.IsNullOrWhiteSpace(GetEffectiveAssetType())">Save Asset</button>
             </div>
         </div>
     </div>
@@ -228,14 +276,45 @@
 
     // Form fields
     private string newAssetType = "";
+    private string customAssetType = "";
     private string newAssetTag = "";
     private string newSerialNumber = "";
+    private string newBrand = "";
+    private string customBrand = "";
     private string newModel = "";
-    private string newConfig = "";
+    private string newRam = "";
+    private string newSsd = "";
+    private string newAdditionalConfig = "";
     private DateTime? newPurchaseDate = null;
     private string newStatus = "Available";
     private int? newAssignedEmployeeID = null;
     private string newNotes = "";
+
+    private readonly List<string> assetTypeOptions = new()
+    {
+        "Laptop","Macbook","Macmini", "Monitor", "Keyboard", "Mouse", "Dongle", "Mobile", "USB Cable", "USB Hub", "Webcam", "SSD", "UPS", "Laptop Stand", "Accessories", "Desktop", "Other"
+    };
+
+    private readonly List<string> ramOptions = new() { "4GB", "8GB", "16GB", "32GB", "64GB", "128GB", "N/A" };
+    private readonly List<string> ssdOptions = new() { "128GB", "256GB", "512GB", "1TB", "2TB", "N/A" };
+
+    private readonly Dictionary<string, List<string>> brandOptionsByType = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Laptop"] = new() { "Lenovo ThinkPad", "Lenovo", "HP", "Dell", "Asus", "Acer", "Other" },
+        ["Macbook"] = new() { "Apple" },
+        ["Macmini"] = new() { "Apple" },
+        ["Monitor"] = new() { "HP", "ViewSonic", "Dell", "LG", "Samsung", "Other" },
+        ["Keyboard"] = new() { "A4Tech", "Logitech", "HP", "Dell", "Other" },
+        ["Mouse"] = new() { "A4Tech", "Logitech", "HP", "Dell", "Other" },
+        ["Dongle"] = new() { "Ugreen", "Yuanxin", "TP Link", "HAVIT", "Non Brand", "Other" },
+        ["Mobile"] = new() { "Apple iPhone", "Google Pixel", "Samsung Galaxy", "Oppo", "Motorola", "Other" },
+        ["USB Cable"] = new() { "Ugreen", "Yuanxin", "Non Brand", "Other" },
+        ["USB Hub"] = new() { "Ugreen", "Yuanxin", "TP Link", "Other" },
+        ["Webcam"] = new() { "Logitech", "HP", "A4Tech", "Other" },
+        ["SSD"] = new() { "Western Digital", "Samsung", "Kingston", "Other" },
+        ["UPS"] = new() { "DigitalX", "APC", "Other" },
+        ["Desktop"] = new() { "Other" }
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -323,11 +402,24 @@
     private async Task OpenEditModal(Asset asset)
     {
         isEditing = true;
-        newAssetType = asset.Type;
+        var mappedType = MapTypeToOption(asset.Type);
+        if (assetTypeOptions.Contains(mappedType))
+        {
+            newAssetType = mappedType;
+            customAssetType = "";
+        }
+        else
+        {
+            newAssetType = "Other";
+            customAssetType = asset.Type;
+        }
+
         newAssetTag = asset.AssetTag;
         newSerialNumber = asset.SerialNumber ?? "";
+        newBrand = "";
+        customBrand = "";
         newModel = asset.Model ?? "";
-        newConfig = asset.Config ?? "";
+        ParseConfigForEdit(asset.Config);
         newPurchaseDate = asset.PurchaseDate;
         newStatus = asset.Status ?? "Available";
         newAssignedEmployeeID = asset.AssignedEmployeeID;
@@ -356,7 +448,8 @@
 
     private void GenerateAssetTag()
     {
-        if (string.IsNullOrWhiteSpace(newAssetType))
+        var effectiveType = GetEffectiveAssetType();
+        if (string.IsNullOrWhiteSpace(effectiveType))
         {
             newAssetTag = "";
             return;
@@ -364,15 +457,17 @@
 
         // e.g., JBC-Laptop-01
         // Find how many of this type exist
-        string typePrefix = newAssetType.Replace(" ", ""); // remove spaces, e.g. MacMini
-        int count = assets.Count(a => a.Type.Equals(newAssetType, StringComparison.OrdinalIgnoreCase));
+        string typePrefix = effectiveType.Replace(" ", ""); // remove spaces, e.g. MacMini
+        var effectiveTypeKey = GetTypeKey(effectiveType);
+        int count = assets.Count(a => GetTypeKey(a.Type) == effectiveTypeKey);
         
         newAssetTag = $"JBC-{typePrefix}-{(count + 1):D2}";
     }
 
     private async Task SaveAsset()
     {
-        if (string.IsNullOrWhiteSpace(newAssetType)) return;
+        var effectiveType = GetEffectiveAssetType();
+        if (string.IsNullOrWhiteSpace(effectiveType)) return;
 
         if (!isEditing && string.IsNullOrEmpty(newAssetTag))
         {
@@ -381,7 +476,7 @@
 
         var asset = isEditing 
             ? assets.FirstOrDefault(a => a.AssetTag == newAssetTag) 
-            : new Asset { AssetTag = newAssetTag, Type = newAssetType };
+            : new Asset { AssetTag = newAssetTag, Type = effectiveType };
 
         if (asset == null) return;
 
@@ -428,9 +523,10 @@
             });
         }
 
+        asset.Type = effectiveType;
         asset.SerialNumber = newSerialNumber;
-        asset.Model = newModel;
-        asset.Config = newConfig;
+        asset.Model = BuildModelValue();
+        asset.Config = BuildConfigValue();
         asset.PurchaseDate = newPurchaseDate;
         asset.Status = newStatus;
         asset.Notes = newNotes;
@@ -472,13 +568,170 @@
     {
         isEditing = false;
         newAssetType = "";
+        customAssetType = "";
         newAssetTag = "";
         newSerialNumber = "";
+        newBrand = "";
+        customBrand = "";
         newModel = "";
-        newConfig = "";
+        newRam = "";
+        newSsd = "";
+        newAdditionalConfig = "";
         newPurchaseDate = null;
         newStatus = "Available";
         newAssignedEmployeeID = null;
         newNotes = "";
+    }
+
+    private string GetEffectiveAssetType()
+    {
+        if (newAssetType == "Other")
+        {
+            return customAssetType.Trim();
+        }
+
+        return newAssetType.Trim();
+    }
+
+    private List<string> GetBrandOptions()
+    {
+        var effectiveType = GetEffectiveAssetType();
+        if (string.IsNullOrWhiteSpace(effectiveType))
+        {
+            return new List<string> { "Other" };
+        }
+
+        var brandTypeKey = MapTypeToOption(effectiveType);
+
+        if (brandOptionsByType.TryGetValue(brandTypeKey, out var brands))
+        {
+            return brands;
+        }
+
+        return new List<string> { "Other" };
+    }
+
+    private string BuildModelValue()
+    {
+        var brand = newBrand == "Other" ? customBrand.Trim() : newBrand.Trim();
+        if (string.IsNullOrWhiteSpace(brand))
+        {
+            return newModel.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(newModel))
+        {
+            return brand;
+        }
+
+        return $"{brand} {newModel.Trim()}";
+    }
+
+    private string BuildConfigValue()
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(newRam))
+        {
+            parts.Add($"RAM: {newRam}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(newSsd))
+        {
+            parts.Add($"SSD: {newSsd}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(newAdditionalConfig))
+        {
+            parts.Add(newAdditionalConfig.Trim());
+        }
+
+        return string.Join(" | ", parts);
+    }
+
+    private void ParseConfigForEdit(string? config)
+    {
+        newRam = "";
+        newSsd = "";
+        newAdditionalConfig = "";
+
+        if (string.IsNullOrWhiteSpace(config))
+        {
+            return;
+        }
+
+        var parts = config.Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var remaining = new List<string>();
+
+        foreach (var part in parts)
+        {
+            if (part.StartsWith("RAM:", StringComparison.OrdinalIgnoreCase))
+            {
+                newRam = part.Substring(4).Trim();
+                continue;
+            }
+
+            if (part.StartsWith("SSD:", StringComparison.OrdinalIgnoreCase))
+            {
+                newSsd = part.Substring(4).Trim();
+                continue;
+            }
+
+            remaining.Add(part);
+        }
+
+        if (remaining.Any())
+        {
+            newAdditionalConfig = string.Join(" | ", remaining);
+        }
+        else if (string.IsNullOrWhiteSpace(newRam) && string.IsNullOrWhiteSpace(newSsd))
+        {
+            newAdditionalConfig = config;
+        }
+    }
+
+    private string MapTypeToOption(string? assetType)
+    {
+        return GetTypeKey(assetType) switch
+        {
+            "macbook" => "Macbook",
+            "macmini" => "Macmini",
+            "monitor" => "Monitor",
+            "laptop" => "Laptop",
+            "desktop" => "Desktop",
+            "keyboard" => "Keyboard",
+            "mouse" => "Mouse",
+            "dongle" => "Dongle",
+            "mobile" => "Mobile",
+            "usbcable" => "USB Cable",
+            "usbhub" => "USB Hub",
+            "webcam" => "Webcam",
+            "ssd" => "SSD",
+            "ups" => "UPS",
+            "laptopstand" => "Laptop Stand",
+            "accessories" => "Accessories",
+            _ => assetType?.Trim() ?? ""
+        };
+    }
+
+    private string GetTypeKey(string? assetType)
+    {
+        if (string.IsNullOrWhiteSpace(assetType))
+        {
+            return string.Empty;
+        }
+
+        var cleaned = assetType.Trim().ToLowerInvariant().Replace("-", " ");
+        cleaned = string.Join(" ", cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+
+        return cleaned switch
+        {
+            "mac book" => "macbook",
+            "mac mini" => "macmini",
+            "monior" => "monitor",
+            "usb cable" => "usbcable",
+            "usb hub" => "usbhub",
+            "laptop stand" => "laptopstand",
+            _ => cleaned.Replace(" ", "")
+        };
     }
 }
