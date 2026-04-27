@@ -58,6 +58,7 @@ else if (!isLoading)
 @code {
     private string FirebaseDatabaseURL => Configuration["Firebase:DatabaseURL"] ?? "";
     private string FirebaseApiKey => Configuration["Firebase:ApiKey"] ?? "";
+    private const string EmployeeDirectoryCacheKey = "employeeDirectoryEntries";
 
     private List<EmployeeDirectoryEntry> employees = new();
     private bool isLoading;
@@ -120,6 +121,7 @@ else if (!isLoading)
             var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
             employees = ParseEmployees(payload);
             dataTableInitialized = false;
+            await SaveEmployeesToLocalStorage();
         }
         catch (Exception ex)
         {
@@ -175,6 +177,12 @@ else if (!isLoading)
             isSeeding = false;
             await InvokeAsync(StateHasChanged);
         }
+    }
+
+    private async Task SaveEmployeesToLocalStorage()
+    {
+        var json = JsonSerializer.Serialize(employees);
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", EmployeeDirectoryCacheKey, json);
     }
 
     private static List<EmployeeDirectoryEntry> ParseEmployees(JsonElement payload)
