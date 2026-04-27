@@ -6,6 +6,7 @@
 @using System.IO
 @using System.Linq
 @using System.Text.Json
+@using Microsoft.AspNetCore.Components.Forms
 @inject IJSRuntime JSRuntime
 
 <div class="container-fluid">
@@ -13,6 +14,29 @@
         <div class="col-md-8 col-lg-6">
             <div class="text-center mb-5">
                 <h2 class="mb-4">Salary Certificate</h2>
+
+                @if (!string.IsNullOrEmpty(lastFileName))
+                {
+                    <div class="alert alert-info text-start">
+                        <strong>Last imported file:</strong> @lastFileName
+                        @if (lastUpdated.HasValue)
+                        {
+                            <div class="text-muted mt-1">Last updated: @lastUpdated.Value.ToString("dd MMMM, yyyy hh:mm tt")</div>
+                        }
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(dataUploadMessage))
+                {
+                    <div class="alert @(dataUploadSuccess ? "alert-success" : "alert-danger") text-start">@dataUploadMessage</div>
+                }
+
+                <div class="mb-4 text-start">
+                    <InputFile id="@FileInputId" accept=".csv" style="position: absolute; left: -9999px;" OnChange="HandleFileChange" />
+                    <label for="@FileInputId" class="btn btn-primary mb-0 me-2">Upload CSV</label>
+                    <button @onclick="SyncData" class="btn btn-secondary me-2">Sync Data</button>
+                    <button @onclick="ClearData" class="btn btn-outline-danger">Clear Data</button>
+                </div>
 
                 
                 <div class="search-container mb-4">
@@ -229,6 +253,8 @@
 </div>
 
 @code {
+    private const string FileInputId = "salaryCertificateFileInput";
+    private const long MaxFileSize = 10 * 1024 * 1024;
     private List<Employee>? employees;
     private string searchQuery = "";
     private List<Employee>? searchResults;
@@ -236,6 +262,10 @@
     private Employee? selectedEmployee;
     private Employee? printEmployee;
     private DateTime printGeneratedAt = DateTime.Now;
+    private string? lastFileName;
+    private DateTime? lastUpdated;
+    private string? dataUploadMessage;
+    private bool dataUploadSuccess;
 
     protected override async Task OnInitializedAsync()
     {
@@ -249,6 +279,101 @@
         {
             employees = JsonSerializer.Deserialize<List<Employee>>(json);
         }
+
+        lastFileName = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "lastFileName");
+        var lastUpdatedValue = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "lastUpdated");
+        if (!string.IsNullOrEmpty(lastUpdatedValue) && DateTime.TryParse(lastUpdatedValue, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsedLastUpdated))
+        {
+            lastUpdated = parsedLastUpdated.ToLocalTime();
+        }
+        else
+        {
+            lastUpdated = null;
+        }
+    }
+
+    private async Task HandleFileChange(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream(MaxFileSize);
+            using var reader = new StreamReader(stream);
+            var content = await reader.ReadToEndAsync();
+            await ReceiveFileContent(content, file.Name);
+        }
+        catch (Exception ex)
+        {
+            dataUploadSuccess = false;
+            dataUploadMessage = $"Unable to read CSV: {ex.Message}";
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task SaveToLocalStorage()
+    {
+        if (employees == null)
+        {
+            return;
+        }
+
+        var json = JsonSerializer.Serialize(employees);
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "employees", json);
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "lastFileName", lastFileName ?? "");
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "lastUpdated", lastUpdated?.ToString("o") ?? "");
+    }
+
+    private async Task SyncData()
+    {
+        await LoadEmployeesFromStorage();
+        searchResults = new List<Employee>();
+        dataUploadSuccess = true;
+        dataUploadMessage = "Employee data synced from browser storage.";
+    }
+
+    private async Task ClearData()
+    {
+        employees = null;
+        searchResults = new List<Employee>();
+        searchQuery = string.Empty;
+        lastFileName = null;
+        lastUpdated = null;
+
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "employees");
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "lastFileName");
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "lastUpdated");
+
+        dataUploadSuccess = true;
+        dataUploadMessage = "Employee data cleared from browser storage.";
+    }
+
+    private async Task ReceiveFileContent(string content, string fileName)
+    {
+        try
+        {
+            using var csv = new CsvReader(new StringReader(content), CultureInfo.InvariantCulture);
+            employees = csv.GetRecords<Employee>().ToList();
+
+            lastFileName = fileName;
+            lastUpdated = DateTime.Now;
+            await SaveToLocalStorage();
+
+            searchResults = new List<Employee>();
+            dataUploadSuccess = true;
+            dataUploadMessage = "Employee CSV uploaded successfully.";
+        }
+        catch (Exception ex)
+        {
+            dataUploadSuccess = false;
+            dataUploadMessage = $"Unable to process CSV: {ex.Message}";
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private void PerformSearch()

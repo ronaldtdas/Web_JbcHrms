@@ -1,497 +1,180 @@
 @page "/employees"
 
+@using System.Net.Http.Json
 @using Web_JbcHrms.Models
-@using CsvHelper
-@using System.Globalization
-@using System.IO
-@using System.Linq
-@using System.Text.Json
-@using Microsoft.AspNetCore.Components.Forms
-@using Microsoft.JSInterop
 @inject IJSRuntime JSRuntime
+@inject HttpClient Http
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 
 <h3>Employees</h3>
 
-@if (!string.IsNullOrEmpty(lastFileName))
-{
-    <div class="alert alert-info">
-        <strong>Last imported file:</strong> @lastFileName
-    </div>
-}
-
 <div class="mb-3">
-    <InputFile id="@FileInputId" accept=".csv" style="position: absolute; left: -9999px;" OnChange="HandleFileChange" />
-
-    @if (employees == null)
-    {
-        <label for="@FileInputId" class="btn btn-primary mb-0">Choose File</label>
-    }
-    else
-    {
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <label for="@FileInputId" class="btn btn-primary mb-0">Replace File</label>
-                <button @onclick="SyncData" class="btn btn-secondary ms-2">Sync Data</button>
-                <button @onclick="ClearData" class="btn btn-danger ms-2">Clear Data</button>
-            </div>
-            @if (employees != null && employees.Any())
-            {
-                <div>
-                    <button class="btn btn-success" @onclick="DownloadCsv">Download CSV</button>
-                </div>
-            }
-        </div>
-        @if (lastUpdated.HasValue)
-        {
-            <div class="text-muted mt-2">
-                Last updated: @lastUpdated.Value.ToString("dd MMMM, yyyy hh:mm tt")
-            </div>
-        }
-    }
+    <button class="btn btn-primary" @onclick="LoadEmployeesFromFirebase" disabled="@isLoading">
+        @(isLoading ? "Loading..." : "Refresh from Firebase")
+    </button>
+    <button class="btn btn-outline-danger ms-2" @onclick="SeedEmployeesToFirebase" disabled="@(isLoading || isSeeding)">
+        @(isSeeding ? "Seeding..." : "Admin: Seed/Update Firebase")
+    </button>
 </div>
 
-@if (employees != null && employees.Any())
+@if (!string.IsNullOrWhiteSpace(seedMessage))
+{
+    <div class="alert @(seedSuccess ? "alert-success" : "alert-warning")">@seedMessage</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+@if (employees.Any())
 {
     <div class="table-responsive">
-        <table id="employeeTable" class="table table-striped table-bordered table-hover w-100">
+        <table id="employeeDirectoryTable" class="table table-striped table-bordered table-hover w-100">
             <thead class="table-dark">
                 <tr>
-                    <th>Name</th>
-                    <th>Designation</th>
-                    <th>JoiningDate</th>
-                    <th>Actions</th>
+                    <th>Employee ID</th>
+                    <th>Employee Code</th>
+                    <th>Employee Name</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var emp in employees)
                 {
                     <tr>
-                        <td>@emp.Salutation @emp.FirstName @emp.LastName</td>
-                        <td>@emp.Designation</td>
-                        <td>@emp.JoiningDate.ToString("dd MMMM, yyyy")</td>
-                        <td>
-                            <button class="btn btn-sm btn-info me-1" @onclick="() => ViewEmployee(emp)">View</button>
-                            <button class="btn btn-sm btn-warning" @onclick="() => EditEmployee(emp)">Edit</button>
-                        </td>
+                        <td>@emp.EmployeeID</td>
+                        <td>@emp.EmployeeCode</td>
+                        <td>@emp.EmployeeName</td>
                     </tr>
                 }
             </tbody>
         </table>
     </div>
 }
-
- 
-@if (showViewModal && selectedEmployee != null)
+else if (!isLoading)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-info text-white">
-                    <h5 class="modal-title">View Employee Details</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CloseViewModal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row mb-2">
-                        <div class="col-md-6"><strong>Employee ID:</strong> @selectedEmployee.EmployeeID</div>
-                        <div class="col-md-6"><strong>Salutation:</strong> @selectedEmployee.Salutation</div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-md-6"><strong>First Name:</strong> @selectedEmployee.FirstName</div>
-                        <div class="col-md-6"><strong>Last Name:</strong> @selectedEmployee.LastName</div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-md-6"><strong>Designation:</strong> @selectedEmployee.Designation</div>
-                        <div class="col-md-6"><strong>Joining Date:</strong> @selectedEmployee.JoiningDate.ToString("dd MMMM, yyyy")</div>
-                    </div>
-                    <hr />
-                    <h6 class="text-primary">Salary Details</h6>
-                    <div class="row mb-2">
-                        <div class="col-md-6"><strong>Gross:</strong> @selectedEmployee.Gross.ToString("N0") ৳</div>
-                        <div class="col-md-6"><strong>Basic Salary:</strong> @selectedEmployee.BasicSalary.ToString("N0") ৳</div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-md-6"><strong>House Allowance:</strong> @selectedEmployee.HouseAllowance.ToString("N0") ৳</div>
-                        <div class="col-md-6"><strong>Medical Allowance:</strong> @selectedEmployee.MedicalAllowance.ToString("N0") ৳</div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-md-6"><strong>Travel Allowance:</strong> @selectedEmployee.TravelAllowance.ToString("N0") ৳</div>
-                        <div class="col-md-6"><strong>Transport Allowance:</strong> @selectedEmployee.TransportAllowance.ToString("N0") ৳</div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-md-6"><strong>Performance Allowance:</strong> @selectedEmployee.PerformanceAllowance.ToString("N0") ৳</div>
-                        <div class="col-md-6"><strong>Miscellaneous:</strong> @selectedEmployee.Miscellaneous.ToString("N0") ৳</div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-md-6"><strong>Monthly Tax Deduction:</strong> @selectedEmployee.MonthlyTaxDeduction.ToString("N0") ৳</div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseViewModal">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
- 
-@if (showEditModal && editEmployee != null)
-{
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header bg-warning">
-                    <h5 class="modal-title">Edit Employee Details</h5>
-                    <button type="button" class="btn-close" @onclick="CloseEditModal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Employee ID</label>
-                            <input type="number" class="form-control" @bind="editEmployee.EmployeeID" disabled />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Salutation</label>
-                            <input type="text" class="form-control" @bind="editEmployee.Salutation" />
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">First Name</label>
-                            <input type="text" class="form-control" @bind="editEmployee.FirstName" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Last Name</label>
-                            <input type="text" class="form-control" @bind="editEmployee.LastName" />
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Designation</label>
-                            <input type="text" class="form-control" @bind="editEmployee.Designation" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Joining Date</label>
-                            <input type="date" class="form-control" @bind="editEmployee.JoiningDate" />
-                        </div>
-                    </div>
-                    <hr />
-                    <h6 class="text-primary">Salary Details</h6>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Gross</label>
-                            <input type="number" step="1" class="form-control" @bind="editEmployee.Gross" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Basic Salary</label>
-                            <input type="number" step="1" class="form-control" @bind="editEmployee.BasicSalary" />
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">House Allowance</label>
-                            <input type="number" step="1" class="form-control" @bind="editEmployee.HouseAllowance" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Medical Allowance</label>
-                            <input type="number" step="1" class="form-control" @bind="editEmployee.MedicalAllowance" />
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Travel Allowance</label>
-                            <input type="number" step="1" class="form-control" @bind="editEmployee.TravelAllowance" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Transport Allowance</label>
-                            <input type="number" step="1" class="form-control" @bind="editEmployee.TransportAllowance" />
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Performance Allowance</label>
-                            <input type="number" step="1" class="form-control" @bind="editEmployee.PerformanceAllowance" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Miscellaneous</label>
-                            <input type="number" step="1" class="form-control" @bind="editEmployee.Miscellaneous" />
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Monthly Tax Deduction</label>
-                            <input type="number" step="1" class="form-control" @bind="editEmployee.MonthlyTaxDeduction" />
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseEditModal">Cancel</button>
-                    <button type="button" class="btn btn-primary" @onclick="SaveEmployee">Save Changes</button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
- 
-@if (showConfirmationDialog)
-{
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header @(updateSuccess ? "bg-success" : "bg-danger") text-white">
-                    <h5 class="modal-title">@(updateSuccess ? "Success" : "Error")</h5>
-                </div>
-                <div class="modal-body">
-                    <p>@confirmationMessage</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" @onclick="CloseConfirmationDialog">OK</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <div class="alert alert-info">No employees found in Firebase.</div>
 }
 
 @code {
-    private const string FileInputId = "employeesFileInput";
-    private const long MaxFileSize = 10 * 1024 * 1024;
-    private List<Employee>? employees;
-    private string? lastFileName;
-    private bool dataTableInitialized = false;
+    private string FirebaseDatabaseURL => Configuration["Firebase:DatabaseURL"] ?? "";
+    private string FirebaseApiKey => Configuration["Firebase:ApiKey"] ?? "";
 
-    
-    private bool showViewModal = false;
-    private bool showEditModal = false;
-    private bool showConfirmationDialog = false;
-    private Employee? selectedEmployee;
-    private Employee? editEmployee;
-    private Employee? originalEmployee;
-    private DateTime? lastUpdated;
-    private bool updateSuccess = false;
-    private string confirmationMessage = "";
+    private List<EmployeeDirectoryEntry> employees = new();
+    private bool isLoading;
+    private bool isSeeding;
+    private bool dataTableInitialized;
+    private string? errorMessage;
+    private string? seedMessage;
+    private bool seedSuccess;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadFromLocalStorage();
+        await InitFirebaseAppCheck();
+        await LoadEmployeesFromFirebase();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!dataTableInitialized && employees != null && employees.Any())
+        if (!dataTableInitialized && employees.Any())
         {
-            await JSRuntime.InvokeVoidAsync("initDataTable", "employeeTable");
+            await JSRuntime.InvokeVoidAsync("initDataTable", "employeeDirectoryTable");
             dataTableInitialized = true;
         }
     }
 
-    private async Task HandleFileChange(InputFileChangeEventArgs e)
+    private async Task InitFirebaseAppCheck()
     {
-        var file = e.File;
-        if (file is null)
+        var config = new
         {
-            return;
-        }
+            apiKey = Configuration["Firebase:ApiKey"],
+            authDomain = Configuration["Firebase:AuthDomain"],
+            databaseURL = Configuration["Firebase:DatabaseURL"],
+            projectId = Configuration["Firebase:ProjectId"],
+            storageBucket = Configuration["Firebase:StorageBucket"],
+            messagingSenderId = Configuration["Firebase:MessagingSenderId"],
+            appId = Configuration["Firebase:AppId"]
+        };
+        var recaptchaSiteKey = Configuration["Firebase:RecaptchaSiteKey"] ?? "6LfEsr4sAAAAADu4AmwWnhrcCr-jumEguSeDoJpt";
+        await JSRuntime.InvokeVoidAsync("initFirebaseAppCheck", config, recaptchaSiteKey);
+    }
+
+    private async Task LoadEmployeesFromFirebase()
+    {
+        isLoading = true;
+        errorMessage = null;
 
         try
         {
-            await using var stream = file.OpenReadStream(MaxFileSize);
-            using var reader = new StreamReader(stream);
-            var content = await reader.ReadToEndAsync();
-            await ReceiveFileContent(content, file.Name);
-        }
-        catch (Exception ex)
-        {
-            updateSuccess = false;
-            confirmationMessage = $"Unable to read CSV: {ex.Message}";
-            showConfirmationDialog = true;
-            await InvokeAsync(StateHasChanged);
-        }
-    }
+            string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{FirebaseDatabaseURL}/employees.json?auth={FirebaseApiKey}");
+            request.Headers.Add("X-Firebase-AppCheck", token);
 
-    private async Task SyncData()
-    {
-        await LoadFromLocalStorage();
-        dataTableInitialized = false;
-        StateHasChanged();
-    }
+            var response = await Http.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                employees = new();
+                errorMessage = $"Unable to load employees from Firebase ({(int)response.StatusCode} {response.ReasonPhrase}).";
+                return;
+            }
 
-    private async Task ClearData()
-    {
-        employees = null;
-        lastFileName = null;
-        lastUpdated = null;
-        dataTableInitialized = false;
-        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "employees");
-        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "lastFileName");
-        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "lastUpdated");
-    }
-
-    private async Task SaveToLocalStorage()
-    {
-        if (employees != null)
-        {
-            var json = JsonSerializer.Serialize(employees);
-            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "employees", json);
-            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "lastFileName", lastFileName ?? "");
-            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "lastUpdated", lastUpdated?.ToString("o") ?? "");
-        }
-    }
-
-    private async Task LoadFromLocalStorage()
-    {
-        var json = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "employees");
-        if (!string.IsNullOrEmpty(json))
-        {
-            employees = JsonSerializer.Deserialize<List<Employee>>(json);
-        }
-        lastFileName = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "lastFileName");
-        var lastUpdatedValue = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "lastUpdated");
-        if (!string.IsNullOrEmpty(lastUpdatedValue) && DateTime.TryParse(lastUpdatedValue, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsedLastUpdated))
-        {
-            lastUpdated = parsedLastUpdated.ToLocalTime();
-        }
-        else
-        {
-            lastUpdated = null;
-        }
-    }
-
-    public async Task ReceiveFileContent(string content, string fileName)
-    {
-        try
-        {
-            using var csv = new CsvReader(new StringReader(content), CultureInfo.InvariantCulture);
-            var records = csv.GetRecords<Employee>().ToList();
-
-            employees = records;
-            lastFileName = fileName;
-            lastUpdated = DateTime.Now;
-            await SaveToLocalStorage();
+            var dictionary = await response.Content.ReadFromJsonAsync<Dictionary<string, EmployeeDirectoryEntry>>();
+            employees = dictionary?.Values.OrderBy(e => e.EmployeeID).ToList() ?? new();
             dataTableInitialized = false;
         }
         catch (Exception ex)
         {
-            updateSuccess = false;
-            confirmationMessage = $"Unable to process CSV: {ex.Message}";
-            showConfirmationDialog = true;
+            employees = new();
+            errorMessage = $"Unable to load employees: {ex.Message}";
         }
-
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private void ViewEmployee(Employee employee)
-    {
-        selectedEmployee = employee;
-        showViewModal = true;
-    }
-
-    private void CloseViewModal()
-    {
-        showViewModal = false;
-        selectedEmployee = null;
-    }
-
-    private void EditEmployee(Employee employee)
-    {
-        originalEmployee = employee;
-        
-        editEmployee = new Employee
+        finally
         {
-            EmployeeID = employee.EmployeeID,
-            Salutation = employee.Salutation,
-            FirstName = employee.FirstName,
-            LastName = employee.LastName,
-            JoiningDate = employee.JoiningDate,
-            Designation = employee.Designation,
-            Gross = employee.Gross,
-            BasicSalary = employee.BasicSalary,
-            HouseAllowance = employee.HouseAllowance,
-            MedicalAllowance = employee.MedicalAllowance,
-            TravelAllowance = employee.TravelAllowance,
-            Miscellaneous = employee.Miscellaneous,
-            TransportAllowance = employee.TransportAllowance,
-            PerformanceAllowance = employee.PerformanceAllowance,
-            MonthlyTaxDeduction = employee.MonthlyTaxDeduction
-        };
-        showEditModal = true;
+            isLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
-    private void CloseEditModal()
+    private async Task SeedEmployeesToFirebase()
     {
-        showEditModal = false;
-        editEmployee = null;
-        originalEmployee = null;
-    }
-
-    private async Task SaveEmployee()
-    {
-        if (editEmployee == null || originalEmployee == null || employees == null)
-            return;
+        isSeeding = true;
+        seedMessage = null;
 
         try
         {
-            
-            var index = employees.FindIndex(e => e.EmployeeID == editEmployee.EmployeeID);
-            if (index >= 0)
+            var seedData = await Http.GetFromJsonAsync<Dictionary<string, EmployeeDirectoryEntry>>("data/firebase_employees.json");
+            if (seedData == null || seedData.Count == 0)
             {
-                employees[index] = editEmployee;
-                lastUpdated = DateTime.Now;
-                
-                
-                await SaveToLocalStorage();
-
-                
-                showEditModal = false;
-                
-                
-                updateSuccess = true;
-                confirmationMessage = "Employee updated successfully. Use Download CSV to export the latest data.";
-                showConfirmationDialog = true;
-
-                
-                dataTableInitialized = false;
-                StateHasChanged();
+                seedSuccess = false;
+                seedMessage = "Seed file is empty or missing.";
+                return;
             }
+
+            string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
+            var request = new HttpRequestMessage(HttpMethod.Put, $"{FirebaseDatabaseURL}/employees.json?auth={FirebaseApiKey}");
+            request.Headers.Add("X-Firebase-AppCheck", token);
+            request.Content = JsonContent.Create(seedData);
+
+            var response = await Http.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                seedSuccess = false;
+                seedMessage = $"Failed to seed Firebase ({(int)response.StatusCode} {response.ReasonPhrase}).";
+                return;
+            }
+
+            await LoadEmployeesFromFirebase();
+            seedSuccess = true;
+            seedMessage = $"Firebase employees updated successfully ({seedData.Count} records).";
         }
         catch (Exception ex)
         {
-            updateSuccess = false;
-            confirmationMessage = $"Error updating employee: {ex.Message}";
-            showConfirmationDialog = true;
+            seedSuccess = false;
+            seedMessage = $"Seed failed: {ex.Message}";
+        }
+        finally
+        {
+            isSeeding = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
-
-    private async Task DownloadCsv()
-    {
-        if (employees == null || string.IsNullOrEmpty(lastFileName))
-        {
-            updateSuccess = false;
-            confirmationMessage = "No employee data available to download.";
-            showConfirmationDialog = true;
-            return;
-        }
-
-        try
-        {
-            using var writer = new StringWriter();
-            using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
-            csv.WriteRecords(employees);
-            var csvContent = writer.ToString();
-
-            await JSRuntime.InvokeVoidAsync("downloadUpdatedCsv", csvContent, lastFileName);
-        }
-        catch (Exception ex)
-        {
-            updateSuccess = false;
-            confirmationMessage = $"Unable to download CSV: {ex.Message}";
-            showConfirmationDialog = true;
-        }
-    }
-
-    private void CloseConfirmationDialog()
-    {
-        showConfirmationDialog = false;
-        confirmationMessage = "";
-    }
-
 }

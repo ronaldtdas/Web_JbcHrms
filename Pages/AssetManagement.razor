@@ -56,7 +56,7 @@
                                         var emp = employees.FirstOrDefault(e => e.EmployeeID == asset.AssignedEmployeeID.Value);
                                         if (emp != null)
                                         {
-                                            <span>@emp.Salutation @emp.FirstName @emp.LastName</span>
+                                            <span>@emp.EmployeeCode - @emp.EmployeeName</span>
                                         }
                                         else
                                         {
@@ -158,7 +158,7 @@
                                 <option value="">-- Select Employee --</option>
                                 @foreach (var employee in employees)
                                 {
-                                    <option value="@employee.EmployeeID">@employee.Salutation @employee.FirstName @employee.LastName</option>
+                                    <option value="@employee.EmployeeID">@employee.EmployeeCode - @employee.EmployeeName</option>
                                 }
                             </select>
                         </div>
@@ -221,7 +221,7 @@
     private string FirebaseDatabaseURL => Configuration["Firebase:DatabaseURL"] ?? "";
     private string FirebaseApiKey => Configuration["Firebase:ApiKey"] ?? "";
     private List<Asset> assets = new();
-    private List<Employee> employees = new();
+    private List<EmployeeDirectoryEntry> employees = new();
 
     private bool isEditing = false;
     private Asset? historyAsset = null;
@@ -286,17 +286,17 @@
 
     private async Task LoadEmployees()
     {
-        // Fallback or read from LocalStorage
         try
         {
-            var storedEmployees = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "employees");
-            if (!string.IsNullOrEmpty(storedEmployees))
+            string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{FirebaseDatabaseURL}/employees.json?auth={FirebaseApiKey}");
+            request.Headers.Add("X-Firebase-AppCheck", token);
+            var response = await Http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
             {
-                var options = new System.Text.Json.JsonSerializerOptions 
-                { 
-                    PropertyNameCaseInsensitive = true
-                };
-                employees = System.Text.Json.JsonSerializer.Deserialize<List<Employee>>(storedEmployees, options) ?? new();
+                var dictionary = await response.Content.ReadFromJsonAsync<Dictionary<string, EmployeeDirectoryEntry>>();
+                employees = dictionary?.Values.OrderBy(e => e.EmployeeID).ToList() ?? new();
             }
         }
         catch
@@ -392,7 +392,7 @@
         string GetEmployeeName(int id)
         {
             var emp = employees.FirstOrDefault(e => e.EmployeeID == id);
-            return emp != null ? $"{emp.Salutation} {emp.FirstName} {emp.LastName}" : $"Emp ID: {id}";
+            return emp != null ? $"{emp.EmployeeCode} - {emp.EmployeeName}" : $"Emp ID: {id}";
         }
 
         if (!isEditing)
