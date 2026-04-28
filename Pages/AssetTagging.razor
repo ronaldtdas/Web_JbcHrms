@@ -202,7 +202,7 @@
         try
         {
             string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
-            var request = new HttpRequestMessage(HttpMethod.Get, $"{FirebaseDatabaseURL}.json?auth={FirebaseApiKey}");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{FirebaseDatabaseURL}/assets.json?auth={FirebaseApiKey}");
             request.Headers.Add("X-Firebase-AppCheck", token);
             var response = await Http.SendAsync(request);
 

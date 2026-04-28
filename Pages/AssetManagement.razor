@@ -2,6 +2,7 @@
 @using Web_JbcHrms.Models
 @using System.Net.Http.Json
 @using System.Text.Json
+@using Microsoft.AspNetCore.Components.Forms
 @inject IJSRuntime JSRuntime
 @inject HttpClient Http
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
@@ -14,11 +15,20 @@
         <a href="asset-tagging" class="btn btn-sm btn-outline-info me-2">
             <i class="bi bi-tags"></i> Asset Tagging
         </a>
+        <InputFile id="@AssetImportFileInputId" accept=".csv" style="position: absolute; left: -9999px;" OnChange="HandleAssetImportFileChange" />
+        <label for="@AssetImportFileInputId" class="btn btn-sm btn-outline-success me-2 mb-0">
+            <i class="bi bi-upload"></i> Bulk Import CSV
+        </label>
         <button type="button" class="btn btn-sm btn-outline-primary" @onclick="OpenAddModal">
             <i class="bi bi-plus-lg"></i> Add New Asset
         </button>
     </div>
 </div>
+
+@if (!string.IsNullOrWhiteSpace(assetImportMessage))
+{
+    <div class="alert @(assetImportSuccess ? "alert-success" : "alert-danger")">@assetImportMessage</div>
+}
 
 <div class="row">
     <div class="col-12">
@@ -227,6 +237,71 @@
     </div>
 </div>
 
+<!-- Import Preview Modal -->
+<div class="modal fade" id="importPreviewModal" tabindex="-1" aria-labelledby="importPreviewModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importPreviewModalLabel">Preview Assets to Import (@importPreviewData?.Count ?? 0 rows)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseImportPreview"></button>
+            </div>
+            <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                @if (importPreviewData != null && importPreviewData.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th><input type="checkbox" @onchange="e => ToggleAllImportRows((bool)e.Value)" title="Select all" /></th>
+                                    <th>Type</th>
+                                    <th>Brand / Model</th>
+                                    <th>Serial</th>
+                                    <th>Assigned To</th>
+                                    <th>Issue</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var preview in importPreviewData)
+                                {
+                                    <tr class="@(preview.IsDuplicate ? "table-warning" : "")‍">
+                                        <td>
+                                            <input type="checkbox" @bind="preview.IsSelected" />
+                                        </td>
+                                        <td>@preview.Asset.Type</td>
+                                        <td>@preview.Asset.Model</td>
+                                        <td><code style="font-size: 0.8em;">@preview.Asset.SerialNumber</code></td>
+                                        <td>@(preview.AssignedEmployeeName ?? "Unassigned")</td>
+                                        <td>
+                                            @if (preview.IsDuplicate)
+                                            {
+                                                <span class="badge bg-warning text-dark">Possible duplicate</span>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(preview.ValidationWarning))
+                                            {
+                                                <span class="badge bg-info">@preview.ValidationWarning</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted">No assets to preview.</p>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @onclick="CloseImportPreview">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="ConfirmImportAssets" disabled="@(!importPreviewData?.Any(p => p.IsSelected) ?? true)">
+                    <i class="bi bi-check-circle"></i> Import Selected (@(importPreviewData?.Count(p => p.IsSelected) ?? 0))
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- History Modal -->
 <div class="modal fade" id="historyModal" tabindex="-1" aria-labelledby="historyModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -267,6 +342,7 @@
 </div>
 
 @code {
+    private const string AssetImportFileInputId = "assetImportFileInput";
     private string FirebaseDatabaseURL => Configuration["Firebase:DatabaseURL"] ?? "";
     private string FirebaseApiKey => Configuration["Firebase:ApiKey"] ?? "";
     private const string EmployeeDirectoryCacheKey = "employeeDirectoryEntries";
@@ -275,6 +351,11 @@
 
     private bool isEditing = false;
     private Asset? historyAsset = null;
+    private bool dataTableInitialized = false;
+    private string? assetImportMessage;
+    private bool assetImportSuccess;
+    private List<ImportAssetPreview>? importPreviewData;
+    private string? importPreviewFileName;
 
     // Form fields
     private string newAssetType = "";
@@ -346,7 +427,7 @@
         try
         {
             string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
-            var request = new HttpRequestMessage(HttpMethod.Get, $"{FirebaseDatabaseURL}.json?auth={FirebaseApiKey}");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{FirebaseDatabaseURL}/assets.json?auth={FirebaseApiKey}");
             request.Headers.Add("X-Firebase-AppCheck", token);
             var response = await Http.SendAsync(request);
 
@@ -356,6 +437,7 @@
                 if (dictionary != null)
                 {
                     assets = dictionary.Values.ToList();
+                    dataTableInitialized = false;
                 }
             }
         }
@@ -464,9 +546,10 @@
     
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && assets.Any())
+        if (!dataTableInitialized && assets.Any())
         {
             await JSRuntime.InvokeVoidAsync("initDataTable", "assetTable");
+            dataTableInitialized = true;
         }
     }
 
@@ -533,13 +616,217 @@
             return;
         }
 
-        // e.g., JBC-Laptop-01
-        // Find how many of this type exist
-        string typePrefix = effectiveType.Replace(" ", ""); // remove spaces, e.g. MacMini
+        newAssetTag = GenerateNextAssetTag(effectiveType);
+    }
+
+    private async Task HandleAssetImportFileChange(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream(20 * 1024 * 1024);
+            using var reader = new StreamReader(stream);
+            var content = await reader.ReadToEndAsync();
+            await ParseAndPreviewAssets(content, file.Name);
+        }
+        catch (Exception ex)
+        {
+            assetImportSuccess = false;
+            assetImportMessage = $"Unable to read CSV: {ex.Message}";
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ParseAndPreviewAssets(string content, string fileName)
+    {
+        var lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (lines.Length <= 1)
+        {
+            assetImportSuccess = false;
+            assetImportMessage = "CSV file is empty or missing data rows.";
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        importPreviewData = new List<ImportAssetPreview>();
+        var typeIndex = 0;
+
+        for (var lineIndex = 1; lineIndex < lines.Length; lineIndex++)
+        {
+            var line = lines[lineIndex];
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            var fields = ParseCsvLine(line);
+            if (fields.Count < 4)
+            {
+                continue;
+            }
+
+            var assignedPerson = GetCsvField(fields, 1);
+            var employeeCode = GetCsvField(fields, 2);
+            var rawType = GetCsvField(fields, 3);
+            var brand = GetCsvField(fields, 4);
+            var model = GetCsvField(fields, 5);
+            var ram = GetCsvField(fields, 6);
+            var ssd = GetCsvField(fields, 7);
+            var serialNumber = GetCsvField(fields, 8);
+
+            var effectiveType = MapTypeToOption(rawType);
+            if (string.IsNullOrWhiteSpace(effectiveType))
+            {
+                continue;
+            }
+
+            var assetTag = GenerateNextAssetTagWithIndex(effectiveType, typeIndex++);
+            var resolvedEmployeeId = ResolveEmployeeId(employeeCode, assignedPerson);
+            var assignedEmployeeName = resolvedEmployeeId.HasValue
+                ? employees.FirstOrDefault(e => e.EmployeeID == resolvedEmployeeId.Value)?.EmployeeName ?? "Unknown"
+                : null;
+
+            var asset = new Asset
+            {
+                AssetTag = assetTag,
+                Type = effectiveType,
+                SerialNumber = NormalizeImportedCell(serialNumber),
+                PurchaseDate = null,
+                Status = resolvedEmployeeId.HasValue ? "Assigned" : "Available",
+                Notes = string.Empty,
+                AssignedEmployeeID = resolvedEmployeeId,
+                Model = BuildModelValue(brand, model),
+                Config = BuildConfigValue(ram, ssd, null)
+            };
+
+            var isDuplicate = DetectDuplicate(asset);
+            var preview = new ImportAssetPreview
+            {
+                Asset = asset,
+                AssignedEmployeeName = assignedEmployeeName,
+                IsDuplicate = isDuplicate,
+                ValidationWarning = string.IsNullOrWhiteSpace(asset.SerialNumber) ? "No serial" : null,
+                IsSelected = !isDuplicate
+            };
+
+            importPreviewData.Add(preview);
+        }
+
+        importPreviewFileName = fileName;
+        await JSRuntime.InvokeVoidAsync("showModal", "importPreviewModal");
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private string GenerateNextAssetTagWithIndex(string effectiveType, int typeIndex)
+    {
+        string typePrefix = effectiveType.Replace(" ", "");
         var effectiveTypeKey = GetTypeKey(effectiveType);
-        int count = assets.Count(a => GetTypeKey(a.Type) == effectiveTypeKey);
-        
-        newAssetTag = $"JBC-{typePrefix}-{(count + 1):D2}";
+        var count = assets.Count(a => GetTypeKey(a.Type) == effectiveTypeKey) + typeIndex;
+
+        return $"JBC-{typePrefix}-{(count + 1):D2}";
+    }
+
+    private bool DetectDuplicate(Asset candidate)
+    {
+        if (string.IsNullOrWhiteSpace(candidate.SerialNumber))
+        {
+            return false;
+        }
+
+        return assets.Any(a => !string.IsNullOrWhiteSpace(a.SerialNumber) && a.SerialNumber.Equals(candidate.SerialNumber, StringComparison.OrdinalIgnoreCase))
+            || importPreviewData?.Any(p => !string.IsNullOrWhiteSpace(p.Asset.SerialNumber) && p.Asset.SerialNumber.Equals(candidate.SerialNumber, StringComparison.OrdinalIgnoreCase) && p.Asset.AssetTag != candidate.AssetTag) == true;
+    }
+
+    private void ToggleAllImportRows(bool isSelected)
+    {
+        if (importPreviewData != null)
+        {
+            foreach (var preview in importPreviewData)
+            {
+                preview.IsSelected = isSelected;
+            }
+        }
+    }
+
+    private async Task ConfirmImportAssets()
+    {
+        if (importPreviewData == null || !importPreviewData.Any(p => p.IsSelected))
+        {
+            return;
+        }
+
+        await ImportSelectedAssets();
+        await JSRuntime.InvokeVoidAsync("hideModal", "importPreviewModal");
+    }
+
+    private void CloseImportPreview()
+    {
+        importPreviewData = null;
+        importPreviewFileName = null;
+    }
+
+    private async Task ImportSelectedAssets()
+    {
+        if (importPreviewData == null)
+        {
+            return;
+        }
+
+        var selectedAssets = importPreviewData.Where(p => p.IsSelected).ToList();
+        if (!selectedAssets.Any())
+        {
+            assetImportSuccess = false;
+            assetImportMessage = "No assets selected for import.";
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        var importedCount = 0;
+        var errorMessages = new List<string>();
+
+        foreach (var preview in selectedAssets)
+        {
+            var asset = preview.Asset;
+            try
+            {
+                string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
+                var request = new HttpRequestMessage(HttpMethod.Put, $"{FirebaseDatabaseURL}/assets/{asset.AssetTag}.json?auth={FirebaseApiKey}");
+                request.Headers.Add("X-Firebase-AppCheck", token);
+                request.Content = JsonContent.Create(asset);
+
+                var response = await Http.SendAsync(request);
+                if (!response.IsSuccessStatusCode)
+                {
+                    errorMessages.Add($"{asset.AssetTag}: {(int)response.StatusCode} {response.ReasonPhrase}");
+                    continue;
+                }
+
+                assets.Add(asset);
+                importedCount++;
+            }
+            catch (Exception ex)
+            {
+                errorMessages.Add($"{asset.AssetTag}: {ex.Message}");
+            }
+        }
+
+        dataTableInitialized = false;
+        assetImportSuccess = importedCount > 0;
+        assetImportMessage = importedCount == 0
+            ? $"No assets were imported."
+            : $"Successfully imported {importedCount} asset{(importedCount > 1 ? "s" : "")} from {importPreviewFileName}";
+
+        if (errorMessages.Any())
+        {
+            assetImportMessage += $" ({string.Join("; ", errorMessages.Take(3))})";
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task SaveAsset()
@@ -613,7 +900,7 @@
         try
         {
             string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
-            var request = new HttpRequestMessage(HttpMethod.Put, $"{FirebaseDatabaseURL}/{asset.AssetTag}.json?auth={FirebaseApiKey}");
+            var request = new HttpRequestMessage(HttpMethod.Put, $"{FirebaseDatabaseURL}/assets/{asset.AssetTag}.json?auth={FirebaseApiKey}");
             request.Headers.Add("X-Firebase-AppCheck", token);
             request.Content = JsonContent.Create(asset);
 
@@ -624,10 +911,10 @@
                 {
                     assets.Add(asset);
                 }
+
+                dataTableInitialized = false;
                 
                 // Refresh DataTable
-                await JSRuntime.InvokeVoidAsync("initDataTable", "assetTable");
-
                 await JSRuntime.InvokeVoidAsync("hideModal", "addAssetModal");
                 ResetForm();
             }
@@ -640,6 +927,170 @@
         {
             Console.WriteLine($"Exception saving asset: {ex.Message}");
         }
+    }
+
+
+
+    private string GenerateNextAssetTag(string effectiveType)
+    {
+        string typePrefix = effectiveType.Replace(" ", "");
+        var effectiveTypeKey = GetTypeKey(effectiveType);
+        int count = assets.Count(a => GetTypeKey(a.Type) == effectiveTypeKey);
+
+        return $"JBC-{typePrefix}-{(count + 1):D2}";
+    }
+
+    private static string GetCsvField(IReadOnlyList<string> fields, int index)
+    {
+        return index >= 0 && index < fields.Count ? fields[index].Trim() : string.Empty;
+    }
+
+    private static List<string> ParseCsvLine(string line)
+    {
+        var fields = new List<string>();
+        var current = new System.Text.StringBuilder();
+        var inQuotes = false;
+
+        for (var i = 0; i < line.Length; i++)
+        {
+            var character = line[i];
+
+            if (character == '"')
+            {
+                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    current.Append('"');
+                    i++;
+                }
+                else
+                {
+                    inQuotes = !inQuotes;
+                }
+
+                continue;
+            }
+
+            if (character == ',' && !inQuotes)
+            {
+                fields.Add(current.ToString().Trim());
+                current.Clear();
+                continue;
+            }
+
+            current.Append(character);
+        }
+
+        fields.Add(current.ToString().Trim());
+        return fields;
+    }
+
+    private static string? NormalizeImportedCell(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.Equals("n/a", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("na", StringComparison.OrdinalIgnoreCase) ||
+            trimmed == "-" ||
+            trimmed == "---" ||
+            trimmed.Equals("none", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return trimmed;
+    }
+
+    private int? ResolveEmployeeId(string? employeeCode, string? assignedPerson)
+    {
+        var parsedEmployeeId = ParseEmployeeId(employeeCode);
+        if (parsedEmployeeId.HasValue)
+        {
+            var exactEmployee = employees.FirstOrDefault(employee => employee.EmployeeID == parsedEmployeeId.Value);
+            if (exactEmployee != null)
+            {
+                return exactEmployee.EmployeeID;
+            }
+        }
+
+        var normalizedName = NormalizeComparableText(assignedPerson);
+        if (!string.IsNullOrWhiteSpace(normalizedName))
+        {
+            var matchedByName = employees.FirstOrDefault(employee => NormalizeComparableText(employee.EmployeeName) == normalizedName);
+            if (matchedByName != null)
+            {
+                return matchedByName.EmployeeID;
+            }
+        }
+
+        return null;
+    }
+
+    private static int? ParseEmployeeId(string? employeeCode)
+    {
+        if (string.IsNullOrWhiteSpace(employeeCode))
+        {
+            return null;
+        }
+
+        var digits = new string(employeeCode.Where(char.IsDigit).ToArray());
+        return int.TryParse(digits, out var parsedEmployeeId) ? parsedEmployeeId : null;
+    }
+
+    private static string NormalizeComparableText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        return new string(value.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+    }
+
+    private string BuildModelValue(string? brand, string? model)
+    {
+        var normalizedBrand = NormalizeImportedCell(brand);
+        var normalizedModel = NormalizeImportedCell(model);
+
+        if (string.IsNullOrWhiteSpace(normalizedBrand))
+        {
+            return normalizedModel ?? string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(normalizedModel))
+        {
+            return normalizedBrand;
+        }
+
+        return $"{normalizedBrand} {normalizedModel}";
+    }
+
+    private string BuildConfigValue(string? ram, string? ssd, string? additionalConfig)
+    {
+        var parts = new List<string>();
+
+        var normalizedRam = NormalizeImportedCell(ram);
+        if (!string.IsNullOrWhiteSpace(normalizedRam))
+        {
+            parts.Add($"RAM: {normalizedRam}");
+        }
+
+        var normalizedSsd = NormalizeImportedCell(ssd);
+        if (!string.IsNullOrWhiteSpace(normalizedSsd))
+        {
+            parts.Add($"SSD: {normalizedSsd}");
+        }
+
+        var normalizedAdditionalConfig = NormalizeImportedCell(additionalConfig);
+        if (!string.IsNullOrWhiteSpace(normalizedAdditionalConfig))
+        {
+            parts.Add(normalizedAdditionalConfig);
+        }
+
+        return string.Join(" | ", parts);
     }
 
     private void ResetForm()
@@ -692,38 +1143,12 @@
     private string BuildModelValue()
     {
         var brand = newBrand == "Other" ? customBrand.Trim() : newBrand.Trim();
-        if (string.IsNullOrWhiteSpace(brand))
-        {
-            return newModel.Trim();
-        }
-
-        if (string.IsNullOrWhiteSpace(newModel))
-        {
-            return brand;
-        }
-
-        return $"{brand} {newModel.Trim()}";
+        return BuildModelValue(brand, newModel);
     }
 
     private string BuildConfigValue()
     {
-        var parts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(newRam))
-        {
-            parts.Add($"RAM: {newRam}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(newSsd))
-        {
-            parts.Add($"SSD: {newSsd}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(newAdditionalConfig))
-        {
-            parts.Add(newAdditionalConfig.Trim());
-        }
-
-        return string.Join(" | ", parts);
+        return BuildConfigValue(newRam, newSsd, newAdditionalConfig);
     }
 
     private void ParseConfigForEdit(string? config)
@@ -811,5 +1236,14 @@
             "laptop stand" => "laptopstand",
             _ => cleaned.Replace(" ", "")
         };
+    }
+
+    private class ImportAssetPreview
+    {
+        public required Asset Asset { get; set; }
+        public string? AssignedEmployeeName { get; set; }
+        public bool IsDuplicate { get; set; }
+        public string? ValidationWarning { get; set; }
+        public bool IsSelected { get; set; }
     }
 }
