@@ -158,7 +158,7 @@
                         <section class="report-body-section">
                             <p>This is to certify that @printEmployee?.Salutation @printEmployee?.FirstName @printEmployee?.LastName 
                                 is a permanent employee of <strong>JB Connect Ltd.</strong>, 
-                                holding the position <strong>@printEmployee?.Designation</strong>. She joined the company on <strong>@printEmployee?.JoiningDate.ToString("dd MMMM yyyy")</strong>. 
+                                holding the position <strong>@printEmployee?.Designation</strong>. @if (printEmployee?.Salutation == "Mr.") { <span>He</span> } else { <span>She</span> } joined the company on <strong>@printEmployee?.JoiningDate.ToString("dd MMMM yyyy")</strong>. 
                                 @if (printEmployee?.Salutation == "Mr.") { <span>His</span> } else { <span>Her</span> } current monthly gross salary amount is <strong>@printEmployee?.Gross.ToString("N0")/= BDT</strong>, 
                                 with an additional monthly transport allowance of <strong>@printEmployee?.TransportAllowance.ToString("N0")/= BDT</strong>. 
                                 @if (printEmployee?.Salutation == "Mr.") { <span>His</span> } else { <span>Her</span> } total monthly salary with additional Allowance (if any) is 

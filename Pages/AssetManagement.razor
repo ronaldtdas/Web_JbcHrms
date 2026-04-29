@@ -74,6 +74,9 @@
     <button class="btn btn-outline-secondary" @onclick="OpenIndividualAssetsFeature" disabled="@(employees == null || !employees.Any())">
         <i class="bi bi-person-lines-fill"></i> View Individual Assets
     </button>
+    <button class="btn btn-outline-info" @onclick="OpenEmployeeProductHistoryFeature" disabled="@(employees == null || !employees.Any())">
+        <i class="bi bi-clock-history"></i> Employee Product History
+    </button>
 </div>
 
 @if (!string.IsNullOrWhiteSpace(assetImportMessage))
@@ -238,6 +241,80 @@ else if (isIndividualAssetsFeatureOpen)
     else if (selectedEmployeeForAssetList.HasValue)
     {
         <div class="alert alert-warning">No assets assigned to the selected employee.</div>
+    }
+}
+else if (isEmployeeHistoryFeatureOpen)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h5">Employee Product History</h2>
+            <p class="text-muted mb-0">Select an employee to see their assigned product history and asset details.</p>
+        </div>
+        <button class="btn btn-outline-secondary" @onclick="BackToDashboard">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </button>
+    </div>
+    <div class="row mb-3">
+        <div class="col-md-6 col-lg-4">
+            <label class="form-label">Select Employee</label>
+            <select class="form-select" @bind="selectedEmployeeForProductHistory" @bind:after="UpdateSelectedEmployeeProductHistory">
+                <option value="">-- Select Employee --</option>
+                @foreach (var employee in employees ?? Enumerable.Empty<EmployeeDirectoryEntry>())
+                {
+                    <option value="@employee.EmployeeID">@employee.EmployeeCode - @employee.EmployeeName</option>
+                }
+            </select>
+        </div>
+    </div>
+    @if (selectedEmployeeForProductHistory.HasValue && SelectedProductHistoryEmployee != null)
+    {
+        @if (productHistoryAssets.Any())
+        {
+            <div class="alert alert-info">
+                Showing @productHistoryAssets.Count products assigned to <strong>@SelectedProductHistoryEmployee.EmployeeCode - @SelectedProductHistoryEmployee.EmployeeName</strong>.
+            </div>
+            <div class="table-responsive mb-4">
+                <table class="table table-bordered table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Asset Tag</th>
+                            <th>Type</th>
+                            <th>Model</th>
+                            <th>Config</th>
+                            <th>Serial Number</th>
+                            <th>Purchase Date</th>
+                            <th>Status</th>
+                            <th>History Entries</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var asset in productHistoryAssets)
+                        {
+                            <tr>
+                                <td><strong>@asset.AssetTag</strong></td>
+                                <td>@asset.Type</td>
+                                <td>@asset.Model</td>
+                                <td>@asset.Config</td>
+                                <td>@asset.SerialNumber</td>
+                                <td>@(asset.PurchaseDate?.ToString("dd MMM yyyy") ?? "N/A")</td>
+                                <td>@asset.Status</td>
+                                <td>@(asset.History?.Count ?? 0)</td>
+                                <td class="text-nowrap">
+                                    <button class="btn btn-sm btn-outline-info" @onclick="() => ShowHistory(asset)">
+                                        <i class="bi bi-clock-history"></i> View History
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-warning">No assigned products found for this employee.</div>
+        }
     }
 }
 
@@ -582,10 +659,13 @@ else if (isIndividualAssetsFeatureOpen)
     private List<Asset> assets = new();
     private List<EmployeeDirectoryEntry> employees = new();
     private List<Asset> printAssetList = new();
+    private List<Asset> productHistoryAssets = new();
     private int? selectedEmployeeForAssetList;
+    private int? selectedEmployeeForProductHistory;
     private bool isEmployeePreview = false;
     private bool isAssetListFeatureOpen = false;
     private bool isIndividualAssetsFeatureOpen = false;
+    private bool isEmployeeHistoryFeatureOpen = false;
 
     private bool isEditing = false;
 
@@ -808,16 +888,29 @@ else if (isIndividualAssetsFeatureOpen)
     {
         isIndividualAssetsFeatureOpen = true;
         isAssetListFeatureOpen = false;
+        isEmployeeHistoryFeatureOpen = false;
         selectedEmployeeForAssetList = null;
         printAssetList.Clear();
+    }
+
+    private void OpenEmployeeProductHistoryFeature()
+    {
+        isEmployeeHistoryFeatureOpen = true;
+        isAssetListFeatureOpen = false;
+        isIndividualAssetsFeatureOpen = false;
+        selectedEmployeeForProductHistory = null;
+        productHistoryAssets.Clear();
     }
 
     private void BackToDashboard()
     {
         isAssetListFeatureOpen = false;
         isIndividualAssetsFeatureOpen = false;
+        isEmployeeHistoryFeatureOpen = false;
         selectedEmployeeForAssetList = null;
+        selectedEmployeeForProductHistory = null;
         printAssetList.Clear();
+        productHistoryAssets.Clear();
     }
 
     private async Task OpenAddModal()
@@ -917,6 +1010,25 @@ else if (isIndividualAssetsFeatureOpen)
             printAssetList.Clear();
         }
     }
+
+    private void UpdateSelectedEmployeeProductHistory()
+    {
+        if (selectedEmployeeForProductHistory.HasValue)
+        {
+            productHistoryAssets = assets
+                .Where(a => a.AssignedEmployeeID == selectedEmployeeForProductHistory)
+                .OrderBy(a => a.AssetTag)
+                .ToList();
+        }
+        else
+        {
+            productHistoryAssets.Clear();
+        }
+    }
+
+    private EmployeeDirectoryEntry? SelectedProductHistoryEmployee => selectedEmployeeForProductHistory.HasValue
+        ? employees?.FirstOrDefault(e => e.EmployeeID == selectedEmployeeForProductHistory.Value)
+        : null;
 
     private async Task ConfirmIndividualAssetListPrint()
     {
