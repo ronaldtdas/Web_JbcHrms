@@ -13,5 +13,6 @@ public class Asset
     public int? AssignedEmployeeID { get; set; }
     public string? Model { get; set; }
     public string? Config { get; set; }
+    public bool IsDeleted { get; set; }
     public List<AssetHistory> History { get; set; } = new();
 }

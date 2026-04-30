@@ -31,7 +31,7 @@
 
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-xl-3">
-        <div class="card border-primary h-100 shadow-sm">
+        <div class="card border-primary h-100 shadow-sm" role="button" style="cursor: pointer;" @onclick="OpenAssetListFeature">
             <div class="card-body">
                 <h5 class="card-title mb-1">Total Assets</h5>
                 <p class="display-6 mb-0">@TotalAssets</p>
@@ -69,14 +69,17 @@
 </div>
 
 <div class="d-flex flex-wrap gap-2 align-items-center mb-4">
-    <button class="btn btn-outline-primary" @onclick="OpenAssetListFeature" disabled="@(assets == null || !assets.Any())">
+    <!-- <button class="btn btn-outline-primary" @onclick="OpenAssetListFeature" disabled="@(assets == null || !assets.Any())">
         <i class="bi bi-list-ul"></i> View Asset List
-    </button>
+    </button> -->
     <button class="btn btn-outline-secondary" @onclick="OpenIndividualAssetsFeature" disabled="@(employees == null || !employees.Any())">
         <i class="bi bi-person-lines-fill"></i> View Individual Assets
     </button>
     <button class="btn btn-outline-info" @onclick="OpenEmployeeProductHistoryFeature" disabled="@(employees == null || !employees.Any())">
         <i class="bi bi-clock-history"></i> Employee Product History
+    </button>
+    <button class="btn btn-outline-danger" @onclick="OpenTrashFeature" disabled="@(!GetDeletedAssets().Any())">
+        <i class="bi bi-trash3"></i> Trash
     </button>
 </div>
 
@@ -120,9 +123,9 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @if (assets != null && assets.Any())
+                        @if (GetVisibleAssets().Any())
                         {
-                            foreach (var asset in assets)
+                            foreach (var asset in GetVisibleAssets())
                             {
                                 <tr>
                                     <td><strong>@asset.AssetTag</strong></td>
@@ -154,6 +157,9 @@
                                     <td class="text-nowrap">
                                         <button class="btn btn-sm btn-outline-secondary me-1" title="Edit" @onclick="() => OpenEditModal(asset)">
                                             <i class="bi bi-pencil"></i> Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger me-1" title="Delete" @onclick="() => OpenDeleteModal(asset)">
+                                            <i class="bi bi-trash"></i> Delete
                                         </button>
                                         <button class="btn btn-sm btn-outline-info" title="History" @onclick="() => ShowHistory(asset)">
                                             <i class="bi bi-clock-history"></i> History
@@ -209,6 +215,12 @@ else if (isAvailableAssetsFeatureOpen)
                         <td>@asset.SerialNumber</td>
                         <td>@(asset.PurchaseDate?.ToString("dd MMM yyyy") ?? "N/A")</td>
                         <td class="text-nowrap">
+                            <button class="btn btn-sm btn-outline-secondary me-1" title="Edit" @onclick="() => OpenEditModal(asset)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger me-1" title="Delete" @onclick="() => OpenDeleteModal(asset)">
+                                <i class="bi bi-trash"></i>
+                            </button>
                             <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenAssignModal(asset)">
                                 <i class="bi bi-person-plus"></i> Assign
                             </button>
@@ -270,6 +282,7 @@ else if (isIndividualAssetsFeatureOpen)
                         <th>Purchase Date</th>
                         <th>Status</th>
                         <th>Notes</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -284,6 +297,14 @@ else if (isIndividualAssetsFeatureOpen)
                             <td>@(asset.PurchaseDate?.ToString("dd MMM yyyy") ?? "N/A")</td>
                             <td>@asset.Status</td>
                             <td>@asset.Notes</td>
+                            <td class="text-nowrap">
+                                <button class="btn btn-sm btn-outline-secondary me-1" title="Edit" @onclick="() => OpenEditModal(asset)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" title="Delete" @onclick="() => OpenDeleteModal(asset)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -368,6 +389,64 @@ else if (isEmployeeHistoryFeatureOpen)
             <div class="alert alert-warning">No assigned products found for this employee.</div>
         }
     }
+}
+else if (isTrashFeatureOpen)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h5">Trash</h2>
+            <p class="text-muted mb-0">Soft deleted assets are shown here. Restore is enabled.</p>
+        </div>
+        <button class="btn btn-outline-secondary" @onclick="BackToDashboard">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </button>
+    </div>
+    <div class="table-responsive mb-4">
+        <table class="table table-bordered table-sm">
+            <thead class="table-light">
+                <tr>
+                    <th>Asset Tag</th>
+                    <th>Type</th>
+                    <th>Model</th>
+                    <th>Config</th>
+                    <th>Serial Number</th>
+                    <th>Purchase Date</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (GetDeletedAssets().Any())
+                {
+                    @foreach (var asset in GetDeletedAssets())
+                    {
+                        <tr>
+                            <td><strong>@asset.AssetTag</strong></td>
+                            <td>@asset.Type</td>
+                            <td>@asset.Model</td>
+                            <td>@asset.Config</td>
+                            <td>@asset.SerialNumber</td>
+                            <td>@(asset.PurchaseDate?.ToString("dd MMM yyyy") ?? "N/A")</td>
+                            <td>@asset.Status</td>
+                            <td>@asset.Notes</td>
+                            <td class="text-nowrap">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => RestoreAsset(asset)">
+                                    <i class="bi bi-arrow-counterclockwise"></i> Restore
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">No items in trash.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }
 
 <!-- Add/Edit Asset Modal -->
@@ -743,6 +822,28 @@ else if (isEmployeeHistoryFeatureOpen)
     </div>
 </div>
 
+<!-- Delete Asset Modal -->
+<div class="modal fade" id="deleteAssetModal" tabindex="-1" aria-labelledby="deleteAssetModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteAssetModalLabel">Delete Asset</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseDeleteModal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to move <strong>@selectedAssetToDelete?.AssetTag</strong> to trash?</p>
+                <p class="text-muted">This is a soft delete; the item is retained in Trash.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @onclick="CloseDeleteModal">Cancel</button>
+                <button type="button" class="btn btn-danger" @onclick="DeleteSelectedAsset" disabled="@(selectedAssetToDelete == null)">
+                    <i class="bi bi-trash"></i> Move to Trash
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @code {
     private const string AssetImportFileInputId = "assetImportFileInput";
     private string FirebaseDatabaseURL => Configuration["Firebase:DatabaseURL"] ?? "";
@@ -755,6 +856,7 @@ else if (isEmployeeHistoryFeatureOpen)
     private int? selectedEmployeeForAssetList;
     private int? selectedEmployeeForProductHistory;
     private Asset? selectedAssetToAssign;
+    private Asset? selectedAssetToDelete;
     private int? selectedAssignmentEmployeeID;
     private string selectedAssignmentNotes = string.Empty;
     private bool isEmployeePreview = false;
@@ -762,6 +864,7 @@ else if (isEmployeeHistoryFeatureOpen)
     private bool isIndividualAssetsFeatureOpen = false;
     private bool isEmployeeHistoryFeatureOpen = false;
     private bool isAvailableAssetsFeatureOpen = false;
+    private bool isTrashFeatureOpen = false;
 
     private bool isEditing = false;
 
@@ -1022,13 +1125,28 @@ else if (isEmployeeHistoryFeatureOpen)
         isIndividualAssetsFeatureOpen = false;
         isEmployeeHistoryFeatureOpen = false;
         isAvailableAssetsFeatureOpen = false;
+        isTrashFeatureOpen = false;
         selectedEmployeeForAssetList = null;
         selectedEmployeeForProductHistory = null;
         selectedAssetToAssign = null;
+        selectedAssetToDelete = null;
         selectedAssignmentEmployeeID = null;
         selectedAssignmentNotes = string.Empty;
         printAssetList.Clear();
         productHistoryAssets.Clear();
+    }
+
+    private void OpenTrashFeature()
+    {
+        isTrashFeatureOpen = true;
+        isAssetListFeatureOpen = false;
+        isIndividualAssetsFeatureOpen = false;
+        isEmployeeHistoryFeatureOpen = false;
+        isAvailableAssetsFeatureOpen = false;
+        selectedAssetToAssign = null;
+        selectedAssetToDelete = null;
+        selectedAssignmentEmployeeID = null;
+        selectedAssignmentNotes = string.Empty;
     }
 
     private async Task OpenAssignModal(Asset asset)
@@ -1047,9 +1165,111 @@ else if (isEmployeeHistoryFeatureOpen)
         selectedAssignmentNotes = string.Empty;
     }
 
+    private async Task OpenDeleteModal(Asset asset)
+    {
+        selectedAssetToDelete = asset;
+        await JSRuntime.InvokeVoidAsync("showModal", "deleteAssetModal");
+    }
+
+    private async Task CloseDeleteModal()
+    {
+        await JSRuntime.InvokeVoidAsync("hideModal", "deleteAssetModal");
+        selectedAssetToDelete = null;
+    }
+
+    private async Task DeleteSelectedAsset()
+    {
+        if (selectedAssetToDelete == null)
+        {
+            return;
+        }
+
+        selectedAssetToDelete.IsDeleted = true;
+        selectedAssetToDelete.Status = "Deleted";
+
+        try
+        {
+            string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
+            var request = new HttpRequestMessage(HttpMethod.Put, $"{FirebaseDatabaseURL}/assets/{selectedAssetToDelete.AssetTag}.json?auth={FirebaseApiKey}");
+            request.Headers.Add("X-Firebase-AppCheck", token);
+            request.Content = JsonContent.Create(selectedAssetToDelete);
+
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                selectedAssetToDelete = null;
+                dataTableInitialized = false;
+                await CloseDeleteModal();
+                StateHasChanged();
+            }
+            else
+            {
+                Console.WriteLine($"Error soft deleting asset: {response.ReasonPhrase}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception deleting asset: {ex.Message}");
+        }
+    }
+
+    private async Task RestoreAsset(Asset asset)
+    {
+        if (asset == null)
+        {
+            return;
+        }
+
+        asset.IsDeleted = false;
+        asset.Status = asset.AssignedEmployeeID.HasValue ? "Assigned" : "Available";
+        if (asset.History == null)
+        {
+            asset.History = new List<AssetHistory>();
+        }
+
+        asset.History.Add(new AssetHistory
+        {
+            Action = "Restored from Trash",
+            Notes = "Asset restored via Trash view"
+        });
+
+        try
+        {
+            string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
+            var request = new HttpRequestMessage(HttpMethod.Put, $"{FirebaseDatabaseURL}/assets/{asset.AssetTag}.json?auth={FirebaseApiKey}");
+            request.Headers.Add("X-Firebase-AppCheck", token);
+            request.Content = JsonContent.Create(asset);
+
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                dataTableInitialized = false;
+                StateHasChanged();
+            }
+            else
+            {
+                Console.WriteLine($"Error restoring asset: {response.ReasonPhrase}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception restoring asset: {ex.Message}");
+        }
+    }
+
     private IEnumerable<Asset> GetAvailableAssets()
     {
-        return assets.Where(a => string.Equals(a.Status, "Available", StringComparison.OrdinalIgnoreCase));
+        return assets.Where(a => !a.IsDeleted && string.Equals(a.Status, "Available", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private IEnumerable<Asset> GetVisibleAssets()
+    {
+        return assets.Where(a => !a.IsDeleted);
+    }
+
+    private IEnumerable<Asset> GetDeletedAssets()
+    {
+        return assets.Where(a => a.IsDeleted);
     }
 
     private async Task AssignSelectedAsset()
@@ -1166,7 +1386,7 @@ else if (isEmployeeHistoryFeatureOpen)
     private async Task PreviewAllAssetList()
     {
         isEmployeePreview = false;
-        printAssetList = assets.OrderBy(a => a.AssetTag).ToList();
+        printAssetList = GetVisibleAssets().OrderBy(a => a.AssetTag).ToList();
 
         await InvokeAsync(StateHasChanged);
         await Task.Delay(50);
@@ -1192,7 +1412,7 @@ else if (isEmployeeHistoryFeatureOpen)
     {
         if (selectedEmployeeForAssetList.HasValue)
         {
-            printAssetList = assets
+            printAssetList = GetVisibleAssets()
                 .Where(a => a.AssignedEmployeeID == selectedEmployeeForAssetList)
                 .OrderBy(a => a.AssetTag)
                 .ToList();
@@ -1207,7 +1427,7 @@ else if (isEmployeeHistoryFeatureOpen)
     {
         if (selectedEmployeeForProductHistory.HasValue)
         {
-            productHistoryAssets = assets
+            productHistoryAssets = GetVisibleAssets()
                 .Where(a => a.AssignedEmployeeID == selectedEmployeeForProductHistory)
                 .OrderBy(a => a.AssetTag)
                 .ToList();
