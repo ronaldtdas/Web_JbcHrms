@@ -1,4 +1,4 @@
-﻿@using System.Net.Http
+@using System.Net.Http
 @using System.Net.Http.Json
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Routing
@@ -9,3 +9,9 @@
 @using Web_JbcHrms
 @using Web_JbcHrms.Layout
 @using Web_JbcHrms.Components.Reports
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authorization
+@using Web_JbcHrms.Components
+@using Web_JbcHrms.Models
+@using Web_JbcHrms.Services
+@attribute [Authorize]
