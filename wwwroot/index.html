@@ -180,7 +180,7 @@
     <script type="module">
         import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app-check.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail as firebaseSendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
         let appCheckInstance = null;
         let firebaseAuthInstance = null;
@@ -244,6 +244,13 @@
                 return;
             }
             await signOut(firebaseAuthInstance);
+        };
+
+        window.sendPasswordResetEmail = async function(email) {
+            if (!firebaseAuthInstance) {
+                throw new Error("Firebase Auth is not initialized.");
+            }
+            return await firebaseSendPasswordResetEmail(firebaseAuthInstance, email);
         };
 
         window.getRecaptchaToken = async function() {

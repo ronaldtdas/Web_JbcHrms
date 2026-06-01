@@ -19,15 +19,24 @@
                     @errorMessage
                 </div>
             }
+            @if (!string.IsNullOrEmpty(infoMessage))
+            {
+                <div class="alert alert-success" role="alert">
+                    @infoMessage
+                </div>
+            }
             <EditForm Model="@loginRequest" OnValidSubmit="HandleLogin">
                 <DataAnnotationsValidator />
+                <ValidationSummary />
                 <div class="mb-3">
                     <label for="username" class="form-label">Email</label>
                     <InputText id="username" class="form-control" @bind-Value="loginRequest.Username" placeholder="Enter email" />
+                    <ValidationMessage For="() => loginRequest.Username" />
                 </div>
                 <div class="mb-3">
                     <label for="password" class="form-label">Password</label>
                     <InputText id="password" type="password" class="form-control" @bind-Value="loginRequest.Password" placeholder="Enter password" />
+                    <ValidationMessage For="() => loginRequest.Password" />
                 </div>
                 <button type="submit" class="btn btn-primary w-100" disabled="@isProcessing">
                     @if (isProcessing)
@@ -42,8 +51,11 @@
                 </button>
             </EditForm>
             <div class="text-center my-3 text-muted">or</div>
-            <button type="button" class="btn btn-outline-secondary w-100" @onclick="HandleEmailSignUp" disabled="@isProcessing">
+            <button type="button" class="btn btn-outline-secondary w-100 mb-2" @onclick="HandleEmailSignUp" disabled="@isProcessing">
                 <span>Sign up with Email</span>
+            </button>
+            <button type="button" class="btn btn-link w-100" @onclick="HandleForgotPassword" disabled="@isProcessing">
+                Forgot password?
             </button>
         </div>
     </div>
@@ -74,6 +86,7 @@
 @code {
     private LoginRequest loginRequest = new();
     private string errorMessage = string.Empty;
+    private string infoMessage = string.Empty;
     private bool isProcessing = false;
     private bool appCheckInitialized = false;
     private bool authInitialized = false;
@@ -110,10 +123,32 @@
         }
     }
 
+    private bool IsAppCheckConfigured => !string.IsNullOrWhiteSpace(Configuration["Firebase:RecaptchaSiteKey"]) || !string.IsNullOrWhiteSpace(Configuration["Firebase:AppCheckDebugToken"]);
+
+    private async Task EnsureAppCheckTokenAsync()
+    {
+        if (!IsAppCheckConfigured)
+        {
+            return;
+        }
+
+        if (!appCheckInitialized)
+        {
+            throw new InvalidOperationException("Firebase App Check is configured but could not be initialized. Verify Firebase:RecaptchaSiteKey and Firebase:AppCheckDebugToken in configuration.");
+        }
+
+        var appCheckToken = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
+        if (string.IsNullOrWhiteSpace(appCheckToken))
+        {
+            throw new InvalidOperationException("Firebase App Check token could not be retrieved. Check that your App Check setup is correct and that the debug token is registered in Firebase.");
+        }
+    }
+
     private async Task HandleLogin()
     {
         isProcessing = true;
         errorMessage = string.Empty;
+        infoMessage = string.Empty;
 
         if (string.IsNullOrWhiteSpace(loginRequest.Username) || string.IsNullOrWhiteSpace(loginRequest.Password))
         {
@@ -125,12 +160,13 @@
         try
         {
             await InitializeFirebaseServices();
+            await EnsureAppCheckTokenAsync();
             var authResult = await JSRuntime.InvokeAsync<FirebaseAuthResult>("signInWithEmailPassword", loginRequest.Username.Trim(), loginRequest.Password);
             await SignInUser(authResult);
         }
         catch (JSException jsEx)
         {
-            errorMessage = !string.IsNullOrWhiteSpace(jsEx.Message) ? jsEx.Message : "Unable to sign in with email and password.";
+            errorMessage = GetFirebaseAuthErrorMessage(jsEx.Message, "Unable to sign in with email and password.");
         }
         catch (Exception ex)
         {
@@ -146,6 +182,7 @@
     {
         isProcessing = true;
         errorMessage = string.Empty;
+        infoMessage = string.Empty;
 
         if (string.IsNullOrWhiteSpace(loginRequest.Username) || string.IsNullOrWhiteSpace(loginRequest.Password))
         {
@@ -156,13 +193,53 @@
 
         try
         {
+            if (loginRequest.Password.Length < 6)
+            {
+                errorMessage = "Password must be at least 6 characters.";
+                return;
+            }
+
             await InitializeFirebaseServices();
+            await EnsureAppCheckTokenAsync();
             var authResult = await JSRuntime.InvokeAsync<FirebaseAuthResult>("signUpWithEmailPassword", loginRequest.Username.Trim(), loginRequest.Password);
             await SignInUser(authResult, isNewUser: true);
         }
         catch (JSException jsEx)
         {
-            errorMessage = !string.IsNullOrWhiteSpace(jsEx.Message) ? jsEx.Message : "Unable to sign up with email and password.";
+            errorMessage = GetFirebaseAuthErrorMessage(jsEx.Message, "Unable to sign up with email and password.");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task HandleForgotPassword()
+    {
+        isProcessing = true;
+        errorMessage = string.Empty;
+        infoMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(loginRequest.Username))
+        {
+            errorMessage = "Please enter your email address to reset your password.";
+            isProcessing = false;
+            return;
+        }
+
+        try
+        {
+            await InitializeFirebaseServices();
+            await JSRuntime.InvokeVoidAsync("sendPasswordResetEmail", loginRequest.Username.Trim());
+            infoMessage = "A password reset link has been sent to your email.";
+        }
+        catch (JSException jsEx)
+        {
+            errorMessage = GetFirebaseAuthErrorMessage(jsEx.Message, "Unable to send password reset email.");
         }
         catch (Exception ex)
         {
@@ -197,6 +274,46 @@
 
         await AuthStateProvider.UpdateAuthenticationState(userSession);
         NavigationManager.NavigateTo("employees");
+    }
+
+    private static string GetFirebaseAuthErrorMessage(string jsMessage, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(jsMessage))
+        {
+            return fallback;
+        }
+
+        if (jsMessage.Contains("auth/invalid-credential", StringComparison.OrdinalIgnoreCase) || jsMessage.Contains("auth/wrong-password", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Invalid email or password. Please check your credentials and try again.";
+        }
+
+        if (jsMessage.Contains("auth/user-not-found", StringComparison.OrdinalIgnoreCase))
+        {
+            return "No account found with that email address. Please sign up first.";
+        }
+
+        if (jsMessage.Contains("auth/email-already-in-use", StringComparison.OrdinalIgnoreCase))
+        {
+            return "The email is already registered. Please sign in instead.";
+        }
+
+        if (jsMessage.Contains("auth/invalid-email", StringComparison.OrdinalIgnoreCase))
+        {
+            return "The email address is not valid. Please enter a correct email.";
+        }
+
+        if (jsMessage.Contains("auth/weak-password", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Password must be at least 6 characters.";
+        }
+
+        if (jsMessage.Contains("Firebase:", StringComparison.OrdinalIgnoreCase) || jsMessage.Contains("FirebaseError", StringComparison.OrdinalIgnoreCase) || jsMessage.Contains("auth/", StringComparison.OrdinalIgnoreCase))
+        {
+            return fallback;
+        }
+
+        return jsMessage;
     }
 
     private class FirebaseAuthResult
