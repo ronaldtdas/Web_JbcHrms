@@ -180,17 +180,66 @@
     <script type="module">
         import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app-check.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
         let appCheckInstance = null;
+        let firebaseAuthInstance = null;
+        let firebaseAppInstance = null;
 
         window.initFirebaseAppCheck = function(config, recaptchaKey) {
             if (getApps().length === 0) {
-                const app = initializeApp(config);
-                appCheckInstance = initializeAppCheck(app, {
-                    provider: new ReCaptchaEnterpriseProvider(recaptchaKey),
-                    isTokenAutoRefreshEnabled: true
-                });
+                firebaseAppInstance = initializeApp(config);
+            } else {
+                firebaseAppInstance = getApps()[0];
             }
+            appCheckInstance = initializeAppCheck(firebaseAppInstance, {
+                provider: new ReCaptchaEnterpriseProvider(recaptchaKey),
+                isTokenAutoRefreshEnabled: true
+            });
+        };
+
+        window.initFirebaseAuth = function(config) {
+            if (getApps().length === 0) {
+                firebaseAppInstance = initializeApp(config);
+            } else {
+                firebaseAppInstance = getApps()[0];
+            }
+            firebaseAuthInstance = getAuth(firebaseAppInstance);
+        };
+
+        window.signInWithEmailPassword = async function(email, password) {
+            if (!firebaseAuthInstance) {
+                throw new Error("Firebase Auth is not initialized.");
+            }
+            const result = await signInWithEmailAndPassword(firebaseAuthInstance, email, password);
+            const user = result.user;
+            return {
+                email: user.email,
+                displayName: user.displayName,
+                uid: user.uid,
+                idToken: await user.getIdToken()
+            };
+        };
+
+        window.signUpWithEmailPassword = async function(email, password) {
+            if (!firebaseAuthInstance) {
+                throw new Error("Firebase Auth is not initialized.");
+            }
+            const result = await createUserWithEmailAndPassword(firebaseAuthInstance, email, password);
+            const user = result.user;
+            return {
+                email: user.email,
+                displayName: user.displayName,
+                uid: user.uid,
+                idToken: await user.getIdToken()
+            };
+        };
+
+        window.signOutFirebase = async function() {
+            if (!firebaseAuthInstance) {
+                return;
+            }
+            await signOut(firebaseAuthInstance);
         };
 
         window.getRecaptchaToken = async function() {

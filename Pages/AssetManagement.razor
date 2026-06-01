@@ -75,6 +75,9 @@
     <button class="btn btn-outline-secondary" @onclick="OpenIndividualAssetsFeature" disabled="@(employees == null || !employees.Any())">
         <i class="bi bi-person-lines-fill"></i> View Individual Assets
     </button>
+    <button class="btn btn-outline-primary" @onclick="OpenTeamAssetsFeature" disabled="@(assets == null || !assets.Any(a => !string.IsNullOrWhiteSpace(a.AssignedTeamName)))">
+        <i class="bi bi-people"></i> View Team Assets
+    </button>
     <button class="btn btn-outline-info" @onclick="OpenEmployeeProductHistoryFeature" disabled="@(employees == null || !employees.Any())">
         <i class="bi bi-clock-history"></i> Employee Product History
     </button>
@@ -136,7 +139,15 @@
                                     <td>@(asset.PurchaseDate?.ToString("dd MMM yyyy") ?? "N/A")</td>
                                     <td><span class="badge @(asset.Status == "Available" ? "bg-success" : "bg-secondary")">@asset.Status</span></td>
                                     <td>
-                                        @if (asset.AssignedEmployeeID.HasValue)
+                                        @if (!string.IsNullOrWhiteSpace(asset.AssignedTeamName))
+                                        {
+                                            <span>Team: @asset.AssignedTeamName</span>
+                                            @if (!string.IsNullOrWhiteSpace(asset.ResponsiblePerson))
+                                            {
+                                                <div class="small text-muted">Responsible: @asset.ResponsiblePerson</div>
+                                            }
+                                        }
+                                        else if (asset.AssignedEmployeeID.HasValue)
                                         {
                                             var emp = employees?.FirstOrDefault(e => e.EmployeeID == asset.AssignedEmployeeID.Value);
                                             if (emp != null)
@@ -315,6 +326,86 @@ else if (isIndividualAssetsFeatureOpen)
     {
         <div class="alert alert-warning">No assets assigned to the selected employee.</div>
     }
+}
+else if (isTeamAssetsFeatureOpen)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h5">Team Assets</h2>
+            <p class="text-muted mb-0">Browse assets assigned to teams and view the responsible person.</p>
+        </div>
+        <button class="btn btn-outline-secondary" @onclick="BackToDashboard">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </button>
+    </div>
+    <div class="row mb-3">
+        <div class="col-md-6 col-lg-4">
+            <label class="form-label">Filter by Team</label>
+            <select class="form-select" @bind="selectedTeamForAssetList">
+                <option value="">-- All Teams --</option>
+                @foreach (var teamName in TeamNames)
+                {
+                    <option value="@teamName">@teamName</option>
+                }
+            </select>
+        </div>
+    </div>
+    <div class="alert alert-info">
+        Showing @GetTeamAssets().Count() team-assigned asset(s).
+    </div>
+    <div class="table-responsive mb-4">
+        <table class="table table-bordered table-sm">
+            <thead class="table-light">
+                <tr>
+                    <th>Asset Tag</th>
+                    <th>Type</th>
+                    <th>Model</th>
+                    <th>Config</th>
+                    <th>Serial Number</th>
+                    <th>Purchase Date</th>
+                    <th>Team</th>
+                    <th>Responsible</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var asset in GetTeamAssets())
+                {
+                    <tr>
+                        <td><strong>@asset.AssetTag</strong></td>
+                        <td>@asset.Type</td>
+                        <td>@asset.Model</td>
+                        <td>@asset.Config</td>
+                        <td>@asset.SerialNumber</td>
+                        <td>@(asset.PurchaseDate?.ToString("dd MMM yyyy") ?? "N/A")</td>
+                        <td>@asset.AssignedTeamName</td>
+                        <td>@asset.ResponsiblePerson</td>
+                        <td>@asset.Status</td>
+                        <td>@asset.Notes</td>
+                        <td class="text-nowrap">
+                            <button class="btn btn-sm btn-outline-secondary me-1" title="Edit" @onclick="() => OpenEditModal(asset)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger me-1" title="Delete" @onclick="() => OpenDeleteModal(asset)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" title="Reassign" @onclick="() => OpenAssignModal(asset)">
+                                <i class="bi bi-person-plus"></i> Reassign
+                            </button>
+                        </td>
+                    </tr>
+                }
+                @if (!GetTeamAssets().Any())
+                {
+                    <tr>
+                        <td colspan="11" class="text-center py-4 text-muted">No team-assigned assets found.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }
 else if (isEmployeeHistoryFeatureOpen)
 {
@@ -558,15 +649,36 @@ else if (isTrashFeatureOpen)
                     @if (newStatus == "Assigned")
                     {
                         <div class="mb-3">
-                            <label class="form-label">Assign to Employee</label>
-                            <select class="form-select" @bind="newAssignedEmployeeID">
-                                <option value="">-- Select Employee --</option>
-                                @foreach (var employee in employees ?? Enumerable.Empty<EmployeeDirectoryEntry>())
-                                {
-                                    <option value="@employee.EmployeeID">@employee.EmployeeCode - @employee.EmployeeName</option>
-                                }
+                            <label class="form-label">Assignment Type</label>
+                            <select class="form-select" @bind="newAssignmentType">
+                                <option value="Individual">Individual</option>
+                                <option value="Team">Team</option>
                             </select>
                         </div>
+                        @if (newAssignmentType == "Individual")
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Assign to Employee</label>
+                                <select class="form-select" @bind="newAssignedEmployeeID">
+                                    <option value="">-- Select Employee --</option>
+                                    @foreach (var employee in employees ?? Enumerable.Empty<EmployeeDirectoryEntry>())
+                                    {
+                                        <option value="@employee.EmployeeID">@employee.EmployeeCode - @employee.EmployeeName</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Team Name</label>
+                                <input type="text" class="form-control" @bind="newAssignedTeamName" placeholder="e.g. Billing Team" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Responsible Person</label>
+                                <input type="text" class="form-control" @bind="newResponsiblePerson" placeholder="e.g. John Doe" />
+                            </div>
+                        }
                     }
 
                     <div class="mb-3">
@@ -797,15 +909,36 @@ else if (isTrashFeatureOpen)
                         <input type="text" class="form-control bg-light" value="@selectedAssetToAssign.AssetTag" readonly />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Employee</label>
-                        <select class="form-select" @bind="selectedAssignmentEmployeeID">
-                            <option value="">-- Select Employee --</option>
-                            @foreach (var employee in employees ?? Enumerable.Empty<EmployeeDirectoryEntry>())
-                            {
-                                <option value="@employee.EmployeeID">@employee.EmployeeCode - @employee.EmployeeName</option>
-                            }
+                        <label class="form-label">Assignment Type</label>
+                        <select class="form-select" @bind="selectedAssignmentType">
+                            <option value="Individual">Individual</option>
+                            <option value="Team">Team</option>
                         </select>
                     </div>
+                    @if (selectedAssignmentType == "Individual")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Employee</label>
+                            <select class="form-select" @bind="selectedAssignmentEmployeeID">
+                                <option value="">-- Select Employee --</option>
+                                @foreach (var employee in employees ?? Enumerable.Empty<EmployeeDirectoryEntry>())
+                                {
+                                    <option value="@employee.EmployeeID">@employee.EmployeeCode - @employee.EmployeeName</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Team Name</label>
+                            <input type="text" class="form-control" @bind="selectedAssignmentTeamName" placeholder="e.g. Billing Team" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Responsible Person</label>
+                            <input type="text" class="form-control" @bind="selectedAssignmentResponsiblePerson" placeholder="e.g. John Doe" />
+                        </div>
+                    }
                     <div class="mb-3">
                         <label class="form-label">Notes</label>
                         <textarea class="form-control" rows="3" @bind="selectedAssignmentNotes"></textarea>
@@ -814,7 +947,7 @@ else if (isTrashFeatureOpen)
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @onclick="CloseAssignModal">Cancel</button>
-                <button type="button" class="btn btn-primary" @onclick="AssignSelectedAsset" disabled="@(selectedAssetToAssign == null || !selectedAssignmentEmployeeID.HasValue)">
+                <button type="button" class="btn btn-primary" @onclick="AssignSelectedAsset" disabled="@(selectedAssetToAssign == null || (selectedAssignmentType == "Individual" && !selectedAssignmentEmployeeID.HasValue) || (selectedAssignmentType == "Team" && string.IsNullOrWhiteSpace(selectedAssignmentTeamName)) || (selectedAssignmentType == "Team" && string.IsNullOrWhiteSpace(selectedAssignmentResponsiblePerson)))">
                     <i class="bi bi-check2-circle"></i> Assign Asset
                 </button>
             </div>
@@ -854,14 +987,19 @@ else if (isTrashFeatureOpen)
     private List<Asset> printAssetList = new();
     private List<Asset> productHistoryAssets = new();
     private int? selectedEmployeeForAssetList;
+    private string selectedTeamForAssetList = string.Empty;
     private int? selectedEmployeeForProductHistory;
     private Asset? selectedAssetToAssign;
     private Asset? selectedAssetToDelete;
     private int? selectedAssignmentEmployeeID;
+    private string selectedAssignmentType = "Individual";
+    private string selectedAssignmentTeamName = string.Empty;
+    private string selectedAssignmentResponsiblePerson = string.Empty;
     private string selectedAssignmentNotes = string.Empty;
     private bool isEmployeePreview = false;
     private bool isAssetListFeatureOpen = false;
     private bool isIndividualAssetsFeatureOpen = false;
+    private bool isTeamAssetsFeatureOpen = false;
     private bool isEmployeeHistoryFeatureOpen = false;
     private bool isAvailableAssetsFeatureOpen = false;
     private bool isTrashFeatureOpen = false;
@@ -869,7 +1007,8 @@ else if (isTrashFeatureOpen)
     private bool isEditing = false;
 
     private int TotalAssets => assets.Count;
-    private int AssignedAssets => assets.Count(a => a.AssignedEmployeeID.HasValue);
+    private int AssignedAssets => assets.Count(a => !a.IsDeleted && string.Equals(a.Status, "Assigned", StringComparison.OrdinalIgnoreCase));
+    private int TeamAssetsCount => assets.Count(a => !a.IsDeleted && !string.IsNullOrWhiteSpace(a.AssignedTeamName));
     private int AvailableAssets => assets.Count(a => a.Status == "Available");
     private int TotalEmployees => employees.Count;
     private Asset? historyAsset = null;
@@ -892,7 +1031,10 @@ else if (isTrashFeatureOpen)
     private string newAdditionalConfig = "";
     private DateTime? newPurchaseDate = null;
     private string newStatus = "Available";
+    private string newAssignmentType = "Individual";
     private int? newAssignedEmployeeID = null;
+    private string newAssignedTeamName = string.Empty;
+    private string newResponsiblePerson = string.Empty;
     private string newNotes = "";
 
     private readonly List<string> assetTypeOptions = new()
@@ -1086,11 +1228,22 @@ else if (isTrashFeatureOpen)
     private void OpenIndividualAssetsFeature()
     {
         isIndividualAssetsFeatureOpen = true;
+        isTeamAssetsFeatureOpen = false;
         isAssetListFeatureOpen = false;
         isEmployeeHistoryFeatureOpen = false;
         isAvailableAssetsFeatureOpen = false;
         selectedEmployeeForAssetList = null;
         printAssetList.Clear();
+    }
+
+    private void OpenTeamAssetsFeature()
+    {
+        isTeamAssetsFeatureOpen = true;
+        isIndividualAssetsFeatureOpen = false;
+        isAssetListFeatureOpen = false;
+        isEmployeeHistoryFeatureOpen = false;
+        isAvailableAssetsFeatureOpen = false;
+        selectedTeamForAssetList = string.Empty;
     }
 
     private void OpenAvailableAssets()
@@ -1109,6 +1262,7 @@ else if (isTrashFeatureOpen)
         isEmployeeHistoryFeatureOpen = true;
         isAssetListFeatureOpen = false;
         isIndividualAssetsFeatureOpen = false;
+        isTeamAssetsFeatureOpen = false;
         isAvailableAssetsFeatureOpen = false;
         selectedEmployeeForProductHistory = null;
         productHistoryAssets.Clear();
@@ -1123,10 +1277,12 @@ else if (isTrashFeatureOpen)
     {
         isAssetListFeatureOpen = false;
         isIndividualAssetsFeatureOpen = false;
+        isTeamAssetsFeatureOpen = false;
         isEmployeeHistoryFeatureOpen = false;
         isAvailableAssetsFeatureOpen = false;
         isTrashFeatureOpen = false;
         selectedEmployeeForAssetList = null;
+        selectedTeamForAssetList = string.Empty;
         selectedEmployeeForProductHistory = null;
         selectedAssetToAssign = null;
         selectedAssetToDelete = null;
@@ -1141,6 +1297,7 @@ else if (isTrashFeatureOpen)
         isTrashFeatureOpen = true;
         isAssetListFeatureOpen = false;
         isIndividualAssetsFeatureOpen = false;
+        isTeamAssetsFeatureOpen = false;
         isEmployeeHistoryFeatureOpen = false;
         isAvailableAssetsFeatureOpen = false;
         selectedAssetToAssign = null;
@@ -1152,8 +1309,11 @@ else if (isTrashFeatureOpen)
     private async Task OpenAssignModal(Asset asset)
     {
         selectedAssetToAssign = asset;
-        selectedAssignmentEmployeeID = null;
-        selectedAssignmentNotes = string.Empty;
+        selectedAssignmentType = !string.IsNullOrWhiteSpace(asset.AssignedTeamName) ? "Team" : "Individual";
+        selectedAssignmentEmployeeID = selectedAssignmentType == "Individual" ? asset.AssignedEmployeeID : null;
+        selectedAssignmentTeamName = selectedAssignmentType == "Team" ? asset.AssignedTeamName ?? string.Empty : string.Empty;
+        selectedAssignmentResponsiblePerson = selectedAssignmentType == "Team" ? asset.ResponsiblePerson ?? string.Empty : string.Empty;
+        selectedAssignmentNotes = asset.Notes ?? string.Empty;
         await JSRuntime.InvokeVoidAsync("showModal", "assignAssetModal");
     }
 
@@ -1161,7 +1321,10 @@ else if (isTrashFeatureOpen)
     {
         await JSRuntime.InvokeVoidAsync("hideModal", "assignAssetModal");
         selectedAssetToAssign = null;
+        selectedAssignmentType = "Individual";
         selectedAssignmentEmployeeID = null;
+        selectedAssignmentTeamName = string.Empty;
+        selectedAssignmentResponsiblePerson = string.Empty;
         selectedAssignmentNotes = string.Empty;
     }
 
@@ -1267,6 +1430,18 @@ else if (isTrashFeatureOpen)
         return assets.Where(a => !a.IsDeleted);
     }
 
+    private IEnumerable<Asset> GetTeamAssets()
+    {
+        return assets.Where(a => !a.IsDeleted && !string.IsNullOrWhiteSpace(a.AssignedTeamName)
+            && (string.IsNullOrWhiteSpace(selectedTeamForAssetList) || a.AssignedTeamName == selectedTeamForAssetList));
+    }
+
+    private IEnumerable<string> TeamNames => assets
+        .Where(a => !a.IsDeleted && !string.IsNullOrWhiteSpace(a.AssignedTeamName))
+        .Select(a => a.AssignedTeamName!.Trim())
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(name => name);
+
     private IEnumerable<Asset> GetDeletedAssets()
     {
         return assets.Where(a => a.IsDeleted);
@@ -1274,23 +1449,42 @@ else if (isTrashFeatureOpen)
 
     private async Task AssignSelectedAsset()
     {
-        if (selectedAssetToAssign == null || !selectedAssignmentEmployeeID.HasValue)
+        if (selectedAssetToAssign == null ||
+            (selectedAssignmentType == "Individual" && !selectedAssignmentEmployeeID.HasValue) ||
+            (selectedAssignmentType == "Team" && string.IsNullOrWhiteSpace(selectedAssignmentTeamName)) ||
+            (selectedAssignmentType == "Team" && string.IsNullOrWhiteSpace(selectedAssignmentResponsiblePerson)))
         {
             return;
         }
 
-        selectedAssetToAssign.AssignedEmployeeID = selectedAssignmentEmployeeID;
         selectedAssetToAssign.Status = "Assigned";
         selectedAssetToAssign.Notes = selectedAssignmentNotes?.Trim();
+
+        if (selectedAssignmentType == "Individual")
+        {
+            selectedAssetToAssign.AssignedEmployeeID = selectedAssignmentEmployeeID;
+            selectedAssetToAssign.AssignedTeamName = null;
+            selectedAssetToAssign.ResponsiblePerson = null;
+        }
+        else
+        {
+            selectedAssetToAssign.AssignedEmployeeID = null;
+            selectedAssetToAssign.AssignedTeamName = string.IsNullOrWhiteSpace(selectedAssignmentTeamName) ? null : selectedAssignmentTeamName.Trim();
+            selectedAssetToAssign.ResponsiblePerson = string.IsNullOrWhiteSpace(selectedAssignmentResponsiblePerson) ? null : selectedAssignmentResponsiblePerson.Trim();
+        }
 
         if (selectedAssetToAssign.History == null)
         {
             selectedAssetToAssign.History = new List<AssetHistory>();
         }
 
+        var assignmentLabel = selectedAssignmentType == "Individual"
+            ? GetEmployeeName(selectedAssignmentEmployeeID.GetValueOrDefault())
+            : $"Team {selectedAssetToAssign.AssignedTeamName}{(string.IsNullOrWhiteSpace(selectedAssetToAssign.ResponsiblePerson) ? "" : $" (Responsible: {selectedAssetToAssign.ResponsiblePerson})")}";
+
         selectedAssetToAssign.History.Add(new AssetHistory
         {
-            Action = $"Assigned to {GetEmployeeName(selectedAssignmentEmployeeID.Value)}",
+            Action = $"Assigned to {assignmentLabel}",
             Notes = selectedAssignmentNotes?.Trim()
         });
 
@@ -1692,7 +1886,13 @@ else if (isTrashFeatureOpen)
 
         // Keep track of changes for History
         string historyAction = "";
-        int? newAssignee = newStatus == "Assigned" ? newAssignedEmployeeID : null;
+        var effectiveTeamName = string.IsNullOrWhiteSpace(newAssignedTeamName) ? null : newAssignedTeamName.Trim();
+        var effectiveResponsible = string.IsNullOrWhiteSpace(newResponsiblePerson) ? null : newResponsiblePerson.Trim();
+        int? newAssignee = newStatus == "Assigned" && newAssignmentType == "Individual" ? newAssignedEmployeeID : null;
+        bool isTeamAssignment = newStatus == "Assigned" && newAssignmentType == "Team";
+        string? newAssignmentDisplay = isTeamAssignment
+            ? (effectiveTeamName is not null ? $"Team {effectiveTeamName}{(effectiveResponsible is not null ? $" (Responsible: {effectiveResponsible})" : string.Empty)}" : null)
+            : (newAssignee.HasValue ? GetEmployeeName(newAssignee.Value) : null);
 
         string GetEmployeeName(int id)
         {
@@ -1700,25 +1900,28 @@ else if (isTrashFeatureOpen)
             return emp != null ? $"{emp.EmployeeCode} - {emp.EmployeeName}" : $"Emp ID: {id}";
         }
 
+        string? previousAssignmentDisplay = asset.AssignedEmployeeID.HasValue
+            ? GetEmployeeName(asset.AssignedEmployeeID.Value)
+            : !string.IsNullOrWhiteSpace(asset.AssignedTeamName)
+                ? $"Team {asset.AssignedTeamName}{(string.IsNullOrWhiteSpace(asset.ResponsiblePerson) ? string.Empty : $" (Responsible: {asset.ResponsiblePerson})")}"
+                : null;
+
         if (!isEditing)
         {
-            if (newAssignee.HasValue)
+            if (!string.IsNullOrWhiteSpace(newAssignmentDisplay))
             {
-                historyAction = $"Assigned to {GetEmployeeName(newAssignee.Value)}";
+                historyAction = $"Assigned to {newAssignmentDisplay}";
             }
         }
-        else
+        else if (!string.Equals(previousAssignmentDisplay, newAssignmentDisplay, StringComparison.OrdinalIgnoreCase))
         {
-            if (asset.AssignedEmployeeID != newAssignee)
+            if (!string.IsNullOrWhiteSpace(newAssignmentDisplay))
             {
-                if (newAssignee.HasValue)
-                {
-                    historyAction = $"Assigned to {GetEmployeeName(newAssignee.Value)}";
-                }
-                else if (asset.AssignedEmployeeID.HasValue)
-                {
-                    historyAction = $"Unassigned from {GetEmployeeName(asset.AssignedEmployeeID.Value)}";
-                }
+                historyAction = $"Assigned to {newAssignmentDisplay}";
+            }
+            else if (!string.IsNullOrWhiteSpace(previousAssignmentDisplay))
+            {
+                historyAction = $"Unassigned from {previousAssignmentDisplay}";
             }
         }
 
@@ -1740,7 +1943,9 @@ else if (isTrashFeatureOpen)
         asset.PurchaseDate = newPurchaseDate;
         asset.Status = newStatus;
         asset.Notes = newNotes;
-        asset.AssignedEmployeeID = newStatus == "Assigned" ? newAssignedEmployeeID : null;
+        asset.AssignedEmployeeID = newAssignee;
+        asset.AssignedTeamName = isTeamAssignment ? effectiveTeamName : null;
+        asset.ResponsiblePerson = isTeamAssignment ? effectiveResponsible : null;
 
         try
         {
@@ -1953,7 +2158,10 @@ else if (isTrashFeatureOpen)
         newAdditionalConfig = "";
         newPurchaseDate = null;
         newStatus = "Available";
+        newAssignmentType = "Individual";
         newAssignedEmployeeID = null;
+        newAssignedTeamName = string.Empty;
+        newResponsiblePerson = string.Empty;
         newNotes = "";
     }
 

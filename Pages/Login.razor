@@ -3,6 +3,8 @@
 @attribute [AllowAnonymous]
 @inject CustomAuthStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IConfiguration Configuration
 
 <div class="login-container">
     <div class="login-card shadow-lg">
@@ -20,8 +22,8 @@
             <EditForm Model="@loginRequest" OnValidSubmit="HandleLogin">
                 <DataAnnotationsValidator />
                 <div class="mb-3">
-                    <label for="username" class="form-label">Username</label>
-                    <InputText id="username" class="form-control" @bind-Value="loginRequest.Username" placeholder="Enter username" />
+                    <label for="username" class="form-label">Email</label>
+                    <InputText id="username" class="form-control" @bind-Value="loginRequest.Username" placeholder="Enter email" />
                 </div>
                 <div class="mb-3">
                     <label for="password" class="form-label">Password</label>
@@ -35,13 +37,14 @@
                     }
                     else
                     {
-                        <span>Sign In</span>
+                        <span>Sign In with Email</span>
                     }
                 </button>
             </EditForm>
-        </div>
-        <div class="card-footer text-center text-muted p-3">
-            <small>Mock login: use any username/password</small>
+            <div class="text-center my-3 text-muted">or</div>
+            <button type="button" class="btn btn-outline-secondary w-100" @onclick="HandleEmailSignUp" disabled="@isProcessing">
+                <span>Sign up with Email</span>
+            </button>
         </div>
     </div>
 </div>
@@ -72,32 +75,123 @@
     private LoginRequest loginRequest = new();
     private string errorMessage = string.Empty;
     private bool isProcessing = false;
+    private bool authInitialized = false;
+
+    private async Task InitializeFirebaseAuth()
+    {
+        if (authInitialized)
+        {
+            return;
+        }
+
+        var config = new
+        {
+            apiKey = Configuration["Firebase:ApiKey"],
+            authDomain = Configuration["Firebase:AuthDomain"],
+            projectId = Configuration["Firebase:ProjectId"],
+            storageBucket = Configuration["Firebase:StorageBucket"],
+            messagingSenderId = Configuration["Firebase:MessagingSenderId"],
+            appId = Configuration["Firebase:AppId"]
+        };
+
+        await JSRuntime.InvokeVoidAsync("initFirebaseAuth", config);
+        authInitialized = true;
+    }
 
     private async Task HandleLogin()
     {
         isProcessing = true;
         errorMessage = string.Empty;
 
-        // Mock authentication logic
-        await Task.Delay(1000); // Simulate network delay
-
-        if (!string.IsNullOrEmpty(loginRequest.Username) && !string.IsNullOrEmpty(loginRequest.Password))
+        if (string.IsNullOrWhiteSpace(loginRequest.Username) || string.IsNullOrWhiteSpace(loginRequest.Password))
         {
-            var userSession = new UserSession
-            {
-                UserName = loginRequest.Username,
-                Token = Guid.NewGuid().ToString(),
-                Role = "Admin"
-            };
-
-            await AuthStateProvider.UpdateAuthenticationState(userSession);
-            NavigationManager.NavigateTo("employees");
-        }
-        else
-        {
-            errorMessage = "Invalid username or password.";
+            errorMessage = "Please provide both email and password.";
+            isProcessing = false;
+            return;
         }
 
-        isProcessing = false;
+        try
+        {
+            await InitializeFirebaseAuth();
+            var authResult = await JSRuntime.InvokeAsync<FirebaseAuthResult>("signInWithEmailPassword", loginRequest.Username.Trim(), loginRequest.Password);
+            await SignInUser(authResult);
+        }
+        catch (JSException jsEx)
+        {
+            errorMessage = !string.IsNullOrWhiteSpace(jsEx.Message) ? jsEx.Message : "Unable to sign in with email and password.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task HandleEmailSignUp()
+    {
+        isProcessing = true;
+        errorMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(loginRequest.Username) || string.IsNullOrWhiteSpace(loginRequest.Password))
+        {
+            errorMessage = "Please provide both email and password.";
+            isProcessing = false;
+            return;
+        }
+
+        try
+        {
+            await InitializeFirebaseAuth();
+            var authResult = await JSRuntime.InvokeAsync<FirebaseAuthResult>("signUpWithEmailPassword", loginRequest.Username.Trim(), loginRequest.Password);
+            await SignInUser(authResult, isNewUser: true);
+        }
+        catch (JSException jsEx)
+        {
+            errorMessage = !string.IsNullOrWhiteSpace(jsEx.Message) ? jsEx.Message : "Unable to sign up with email and password.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task SignInUser(FirebaseAuthResult authResult, bool isNewUser = false)
+    {
+        if (authResult == null || string.IsNullOrWhiteSpace(authResult.Email))
+        {
+            errorMessage = "Authentication did not return a valid user.";
+            return;
+        }
+
+        var userName = authResult.DisplayName;
+        if (string.IsNullOrWhiteSpace(userName))
+        {
+            userName = authResult.Email;
+        }
+
+        var userSession = new UserSession
+        {
+            UserName = userName,
+            Token = authResult.IdToken ?? Guid.NewGuid().ToString(),
+            Role = "User"
+        };
+
+        await AuthStateProvider.UpdateAuthenticationState(userSession);
+        NavigationManager.NavigateTo("employees");
+    }
+
+    private class FirebaseAuthResult
+    {
+        public string? Email { get; set; }
+        public string? DisplayName { get; set; }
+        public string? Uid { get; set; }
+        public string? IdToken { get; set; }
     }
 }
