@@ -75,11 +75,12 @@
     private LoginRequest loginRequest = new();
     private string errorMessage = string.Empty;
     private bool isProcessing = false;
+    private bool appCheckInitialized = false;
     private bool authInitialized = false;
 
-    private async Task InitializeFirebaseAuth()
+    private async Task InitializeFirebaseServices()
     {
-        if (authInitialized)
+        if (appCheckInitialized && authInitialized)
         {
             return;
         }
@@ -94,8 +95,19 @@
             appId = Configuration["Firebase:AppId"]
         };
 
-        await JSRuntime.InvokeVoidAsync("initFirebaseAuth", config);
-        authInitialized = true;
+        var recaptchaSiteKey = Configuration["Firebase:RecaptchaSiteKey"];
+        var appCheckDebugToken = Configuration["Firebase:AppCheckDebugToken"];
+        if (!string.IsNullOrWhiteSpace(recaptchaSiteKey) && !appCheckInitialized)
+        {
+            await JSRuntime.InvokeVoidAsync("initFirebaseAppCheck", config, recaptchaSiteKey, appCheckDebugToken);
+            appCheckInitialized = true;
+        }
+
+        if (!authInitialized)
+        {
+            await JSRuntime.InvokeVoidAsync("initFirebaseAuth", config);
+            authInitialized = true;
+        }
     }
 
     private async Task HandleLogin()
@@ -112,7 +124,7 @@
 
         try
         {
-            await InitializeFirebaseAuth();
+            await InitializeFirebaseServices();
             var authResult = await JSRuntime.InvokeAsync<FirebaseAuthResult>("signInWithEmailPassword", loginRequest.Username.Trim(), loginRequest.Password);
             await SignInUser(authResult);
         }
@@ -144,7 +156,7 @@
 
         try
         {
-            await InitializeFirebaseAuth();
+            await InitializeFirebaseServices();
             var authResult = await JSRuntime.InvokeAsync<FirebaseAuthResult>("signUpWithEmailPassword", loginRequest.Username.Trim(), loginRequest.Password);
             await SignInUser(authResult, isNewUser: true);
         }

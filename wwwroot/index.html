@@ -186,7 +186,11 @@
         let firebaseAuthInstance = null;
         let firebaseAppInstance = null;
 
-        window.initFirebaseAppCheck = function(config, recaptchaKey) {
+        window.initFirebaseAppCheck = function(config, recaptchaKey, debugToken) {
+            if (debugToken) {
+                self.FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
+            }
+
             if (getApps().length === 0) {
                 firebaseAppInstance = initializeApp(config);
             } else {
