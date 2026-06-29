@@ -33,14 +33,10 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    # Inject Firebase config from secret (JS snippet → appsettings.json)
-    - name: Inject Firebase Config
+    # Publish the site (MSBuild injects Firebase config from FIREBASE_CONFIG env var)
+    - name: Publish .NET Core Project
       env:
         FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
-      run: python3 scripts/inject-firebase-config.py
-
-    # Publish the site
-    - name: Publish .NET Core Project
       run: dotnet publish Web_JbcHrms.csproj -c Release -o release --nologo
 
     # Change base tag in index.html to match GitHub Pages repository name
