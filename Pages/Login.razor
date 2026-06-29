@@ -241,11 +241,14 @@
         {
             UserName = userName,
             Token = authResult.IdToken ?? Guid.NewGuid().ToString(),
-            Role = "User"
+            Uid = authResult.Uid ?? ""
         };
 
-        await AuthStateProvider.UpdateAuthenticationState(userSession);
-        NavigationManager.NavigateTo("employees");
+        var role = await AuthStateProvider.UpdateAuthenticationState(userSession);
+        if (role == "Admin")
+            NavigationManager.NavigateTo("employees");
+        else
+            NavigationManager.NavigateTo("unauthorized");
     }
 
     private static string GetFirebaseAuthErrorMessage(string jsMessage, string fallback)

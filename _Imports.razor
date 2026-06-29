@@ -14,4 +14,4 @@
 @using Web_JbcHrms.Components
 @using Web_JbcHrms.Models
 @using Web_JbcHrms.Services
-@attribute [Authorize]
+@attribute [Authorize(Policy = "Admin")]
