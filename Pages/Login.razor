@@ -98,11 +98,7 @@
             return;
         }
 
-        var configSection = Configuration.GetSection("FirebaseConfig");
-        var firebaseConfig = configSection.Get<FirebaseConfigOptions>();
-        Console.WriteLine("[FirebaseConfig] Section exists: {0}", configSection.Exists());
-        Console.WriteLine("[FirebaseConfig] Raw children: {0}", string.Join(", ", configSection.GetChildren().Select(c => $"{c.Key}={c.Value}")));
-        Console.WriteLine("[FirebaseConfig] Bound ApiKey null/empty: {0}", string.IsNullOrWhiteSpace(firebaseConfig?.ApiKey));
+        var firebaseConfig = Configuration.GetSection("FirebaseConfig").Get<FirebaseConfigOptions>();
         if (firebaseConfig == null || string.IsNullOrWhiteSpace(firebaseConfig.ApiKey))
         {
             throw new InvalidOperationException("Firebase config is missing.");
