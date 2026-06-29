@@ -56,8 +56,9 @@ else if (!isLoading)
 }
 
 @code {
-    private string FirebaseDatabaseURL => Configuration["Firebase:DatabaseURL"] ?? "";
-    private string FirebaseApiKey => Configuration["Firebase:ApiKey"] ?? "";
+    private FirebaseConfigOptions FirebaseConfig => Configuration.GetSection("FirebaseConfig").Get<FirebaseConfigOptions>() ?? new();
+    private string FirebaseDatabaseURL => FirebaseConfig.DatabaseURL;
+    private string FirebaseApiKey => FirebaseConfig.ApiKey;
     private const string EmployeeDirectoryCacheKey = "employeeDirectoryEntries";
 
     private List<EmployeeDirectoryEntry> employees = new();
@@ -70,7 +71,6 @@ else if (!isLoading)
 
     protected override async Task OnInitializedAsync()
     {
-        await InitFirebaseAppCheck();
         await LoadEmployeesFromFirebase();
     }
 
@@ -83,22 +83,6 @@ else if (!isLoading)
         }
     }
 
-    private async Task InitFirebaseAppCheck()
-    {
-        var config = new
-        {
-            apiKey = Configuration["Firebase:ApiKey"],
-            authDomain = Configuration["Firebase:AuthDomain"],
-            databaseURL = Configuration["Firebase:DatabaseURL"],
-            projectId = Configuration["Firebase:ProjectId"],
-            storageBucket = Configuration["Firebase:StorageBucket"],
-            messagingSenderId = Configuration["Firebase:MessagingSenderId"],
-            appId = Configuration["Firebase:AppId"]
-        };
-        var recaptchaSiteKey = Configuration["Firebase:RecaptchaSiteKey"] ?? "6LfEsr4sAAAAADu4AmwWnhrcCr-jumEguSeDoJpt";
-        await JSRuntime.InvokeVoidAsync("initFirebaseAppCheck", config, recaptchaSiteKey);
-    }
-
     private async Task LoadEmployeesFromFirebase()
     {
         isLoading = true;
@@ -106,9 +90,7 @@ else if (!isLoading)
 
         try
         {
-            string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
             var request = new HttpRequestMessage(HttpMethod.Get, $"{FirebaseDatabaseURL}/employees.json?auth={FirebaseApiKey}");
-            request.Headers.Add("X-Firebase-AppCheck", token);
 
             var response = await Http.SendAsync(request);
             if (!response.IsSuccessStatusCode)
@@ -150,9 +132,7 @@ else if (!isLoading)
                 return;
             }
 
-            string token = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
             var request = new HttpRequestMessage(HttpMethod.Put, $"{FirebaseDatabaseURL}/employees.json?auth={FirebaseApiKey}");
-            request.Headers.Add("X-Firebase-AppCheck", token);
             request.Content = JsonContent.Create(seedData);
 
             var response = await Http.SendAsync(request);

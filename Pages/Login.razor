@@ -1,6 +1,7 @@
 @page "/login"
 @layout LoginLayout
 @attribute [AllowAnonymous]
+@using System.Linq
 @inject CustomAuthStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
@@ -88,60 +89,33 @@
     private string errorMessage = string.Empty;
     private string infoMessage = string.Empty;
     private bool isProcessing = false;
-    private bool appCheckInitialized = false;
     private bool authInitialized = false;
 
-    private async Task InitializeFirebaseServices()
+    private async Task InitializeFirebaseAuth()
     {
-        if (appCheckInitialized && authInitialized)
+        if (authInitialized)
         {
             return;
+        }
+
+        var firebaseConfig = Configuration.GetSection("FirebaseConfig").Get<FirebaseConfigOptions>();
+        if (firebaseConfig == null || string.IsNullOrWhiteSpace(firebaseConfig.ApiKey))
+        {
+            throw new InvalidOperationException("Firebase config is missing.");
         }
 
         var config = new
         {
-            apiKey = Configuration["Firebase:ApiKey"],
-            authDomain = Configuration["Firebase:AuthDomain"],
-            projectId = Configuration["Firebase:ProjectId"],
-            storageBucket = Configuration["Firebase:StorageBucket"],
-            messagingSenderId = Configuration["Firebase:MessagingSenderId"],
-            appId = Configuration["Firebase:AppId"]
+            apiKey = firebaseConfig.ApiKey,
+            authDomain = firebaseConfig.AuthDomain,
+            projectId = firebaseConfig.ProjectId,
+            storageBucket = firebaseConfig.StorageBucket,
+            messagingSenderId = firebaseConfig.MessagingSenderId,
+            appId = firebaseConfig.AppId
         };
 
-        var recaptchaSiteKey = Configuration["Firebase:RecaptchaSiteKey"];
-        var appCheckDebugToken = Configuration["Firebase:AppCheckDebugToken"];
-        if (!string.IsNullOrWhiteSpace(recaptchaSiteKey) && !appCheckInitialized)
-        {
-            await JSRuntime.InvokeVoidAsync("initFirebaseAppCheck", config, recaptchaSiteKey, appCheckDebugToken);
-            appCheckInitialized = true;
-        }
-
-        if (!authInitialized)
-        {
-            await JSRuntime.InvokeVoidAsync("initFirebaseAuth", config);
-            authInitialized = true;
-        }
-    }
-
-    private bool IsAppCheckConfigured => !string.IsNullOrWhiteSpace(Configuration["Firebase:RecaptchaSiteKey"]) || !string.IsNullOrWhiteSpace(Configuration["Firebase:AppCheckDebugToken"]);
-
-    private async Task EnsureAppCheckTokenAsync()
-    {
-        if (!IsAppCheckConfigured)
-        {
-            return;
-        }
-
-        if (!appCheckInitialized)
-        {
-            throw new InvalidOperationException("Firebase App Check is configured but could not be initialized. Verify Firebase:RecaptchaSiteKey and Firebase:AppCheckDebugToken in configuration.");
-        }
-
-        var appCheckToken = await JSRuntime.InvokeAsync<string>("getRecaptchaToken");
-        if (string.IsNullOrWhiteSpace(appCheckToken))
-        {
-            throw new InvalidOperationException("Firebase App Check token could not be retrieved. Check that your App Check setup is correct and that the debug token is registered in Firebase.");
-        }
+        await JSRuntime.InvokeVoidAsync("initFirebaseAuth", config);
+        authInitialized = true;
     }
 
     private async Task HandleLogin()
@@ -159,8 +133,7 @@
 
         try
         {
-            await InitializeFirebaseServices();
-            await EnsureAppCheckTokenAsync();
+            await InitializeFirebaseAuth();
             var authResult = await JSRuntime.InvokeAsync<FirebaseAuthResult>("signInWithEmailPassword", loginRequest.Username.Trim(), loginRequest.Password);
             await SignInUser(authResult);
         }
@@ -199,8 +172,7 @@
                 return;
             }
 
-            await InitializeFirebaseServices();
-            await EnsureAppCheckTokenAsync();
+            await InitializeFirebaseAuth();
             var authResult = await JSRuntime.InvokeAsync<FirebaseAuthResult>("signUpWithEmailPassword", loginRequest.Username.Trim(), loginRequest.Password);
             await SignInUser(authResult, isNewUser: true);
         }
@@ -233,7 +205,7 @@
 
         try
         {
-            await InitializeFirebaseServices();
+            await InitializeFirebaseAuth();
             await JSRuntime.InvokeVoidAsync("sendPasswordResetEmail", loginRequest.Username.Trim());
             infoMessage = "A password reset link has been sent to your email.";
         }

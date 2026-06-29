@@ -1,5 +1,6 @@
 @inject CustomAuthStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -61,6 +62,7 @@
     private async Task Logout()
     {
         await AuthStateProvider.UpdateAuthenticationState(null);
+        await JSRuntime.InvokeVoidAsync("signOutFirebase");
         NavigationManager.NavigateTo("login");
     }
 }
