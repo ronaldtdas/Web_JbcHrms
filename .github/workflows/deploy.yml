@@ -35,8 +35,10 @@ jobs:
 
     # Inject Secrets
     - name: Inject Secrets
+      env:
+        FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
       run: |
-        sed -i 's|__FIREBASE_CONFIG__|${{ secrets.FIREBASE_CONFIG }}|g' wwwroot/appsettings.json
+        perl -0777 -pe 's/__FIREBASE_CONFIG__/$ENV{FIREBASE_CONFIG}/ge' -i wwwroot/appsettings.json
 
     # Publish the site
     - name: Publish .NET Core Project
