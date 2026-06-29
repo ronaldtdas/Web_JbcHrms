@@ -33,12 +33,12 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    # Inject Secrets
-    - name: Inject Secrets
+    # Inject Firebase config into appsettings.json
+    - name: Inject Firebase Config
       env:
         FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
       run: |
-        perl -0777 -pe 's/__FIREBASE_CONFIG__/$ENV{FIREBASE_CONFIG}/ge' -i wwwroot/appsettings.json
+        printf '{\n  "FirebaseConfig": %s\n}\n' "$FIREBASE_CONFIG" > wwwroot/appsettings.json
 
     # Publish the site
     - name: Publish .NET Core Project
