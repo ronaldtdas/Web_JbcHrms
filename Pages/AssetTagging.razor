@@ -1,4 +1,5 @@
 @page "/asset-tagging"
+@attribute [Authorize(Policy = "Admin")]
 @using Web_JbcHrms.Models
 @using System.Net.Http.Json
 @inject IJSRuntime JSRuntime

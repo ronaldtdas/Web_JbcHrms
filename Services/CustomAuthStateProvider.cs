@@ -87,8 +87,8 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
             var response = await _httpClient.GetAsync(url);
             if (response.IsSuccessStatusCode)
             {
-                var content = await response.Content.ReadAsStringAsync();
-                if (!string.IsNullOrWhiteSpace(content) && content.Trim() != "null")
+                var isAdmin = await response.Content.ReadFromJsonAsync<bool>();
+                if (isAdmin)
                     return "Admin";
             }
         }

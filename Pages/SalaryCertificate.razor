@@ -1,4 +1,5 @@
 @page "/salary-certificate"
+@attribute [Authorize(Policy = "Admin")]
 
 @using Web_JbcHrms.Models
 @using CsvHelper
