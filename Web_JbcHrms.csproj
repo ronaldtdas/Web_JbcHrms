@@ -51,7 +51,8 @@
             .Replace("\"projectId\"", "\"ProjectId\"")
             .Replace("\"storageBucket\"", "\"StorageBucket\"")
             .Replace("\"messagingSenderId\"", "\"MessagingSenderId\"")
-            .Replace("\"appId\"", "\"AppId\"");
+            .Replace("\"appId\"", "\"AppId\"")
+            .Replace("\"reCaptchaSiteKey\"", "\"ReCaptchaSiteKey\"");
           File.WriteAllText(OutputFile, "{\n  \"FirebaseConfig\": " + inner + "\n}\n");
           Log.LogMessage("Firebase config injected into " + OutputFile);
         }

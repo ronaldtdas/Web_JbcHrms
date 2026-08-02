@@ -9,4 +9,5 @@ public class FirebaseConfigOptions
     public string StorageBucket { get; set; } = string.Empty;
     public string MessagingSenderId { get; set; } = string.Empty;
     public string AppId { get; set; } = string.Empty;
+    public string ReCaptchaSiteKey { get; set; } = string.Empty;
 }
