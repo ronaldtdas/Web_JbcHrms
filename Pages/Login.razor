@@ -118,7 +118,14 @@
 
         if (!string.IsNullOrWhiteSpace(firebaseConfig.ReCaptchaSiteKey))
         {
-            await JSRuntime.InvokeVoidAsync("initFirebaseAppCheck", firebaseConfig.ReCaptchaSiteKey);
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("initFirebaseAppCheck", firebaseConfig.ReCaptchaSiteKey);
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("console.warn", "Firebase App Check initialization failed:", ex.Message);
+            }
         }
 
         authInitialized = true;

@@ -238,14 +238,19 @@
         };
 
         window.initFirebaseAppCheck = function(siteKey) {
-            const app = getApps()[0];
-            if (!app) {
-                throw new Error("Firebase App is not initialized.");
+            try {
+                const app = getApps()[0];
+                if (!app) {
+                    console.warn("Firebase App is not initialized. Skipping App Check.");
+                    return;
+                }
+                initializeAppCheck(app, {
+                    provider: new ReCaptchaV3Provider(siteKey),
+                    isTokenAutoRefreshEnabled: true
+                });
+            } catch (e) {
+                console.warn("Firebase App Check initialization failed:", e);
             }
-            initializeAppCheck(app, {
-                provider: new ReCaptchaV3Provider(siteKey),
-                isTokenAutoRefreshEnabled: true
-            });
         };
     </script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
