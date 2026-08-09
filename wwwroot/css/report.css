@@ -43,8 +43,8 @@
 }
 
 .report-body p {
-    margin-bottom: 0.65rem;
-    line-height: 1.6;
+    margin-bottom: 0.35rem;
+    line-height: 1.35;
 }
 
 .report-section-title {
@@ -56,18 +56,24 @@
 }
 
 .report-table {
-    font-size: 0.92rem;
+    font-size: 0.82rem;
 }
 
 .report-table thead tr {
-    background-color: white;
-    color: black;
+    background-color: #e9ecef;
+    color: #000000;
 }
 
 .report-table th,
 .report-table td {
     vertical-align: middle;
-    padding: 0.55rem 0.65rem;
+    padding: 0.25rem 0.45rem;
+    border-color: #333333 !important;
+    color: #000000;
+}
+
+.report-table.table-bordered {
+    border: 1.5px solid #333333 !important;
 }
 
 .report-table tbody tr.report-row-empty td {
@@ -110,7 +116,7 @@
 .report-body-section,
 .report-closing,
 .report-signature {
-    margin-bottom: 1.35rem;
+    margin-bottom: 0.75rem;
 }
 
 .report-recipient p,
@@ -123,11 +129,32 @@
 }
 
 @media print {
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+
     body {
         background-color: #ffffff;
         /* Remove default browser margins in print preview. Note: some printers still enforce a non-printable area. */
         margin: 0 !important;
         padding: 0 !important;
+    }
+
+    .report-table {
+        border-color: #000000 !important;
+    }
+
+    .report-table th,
+    .report-table td {
+        border-color: #000000 !important;
+        color: #000000 !important;
+    }
+
+    .report-table thead tr {
+        background-color: #e9ecef !important;
+        color: #000000 !important;
     }
     
     .report-a4,
