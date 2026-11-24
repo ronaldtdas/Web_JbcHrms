@@ -1,5 +1,4 @@
 @page "/asset-tagging"
-@attribute [Authorize(Policy = "Admin")]
 @using Web_JbcHrms.Models
 @using System.Net.Http.Json
 @inject IJSRuntime JSRuntime
@@ -99,7 +98,7 @@
                             box-sizing: border-box;
                         }
                         .asset-tag-card::before {
-                            content: '✁E;
+                            content: '✂';
                             position: absolute;
                             top: -12px;
                             left: -10px;
@@ -168,9 +167,8 @@
 </div>
 
 @code {
-    private FirebaseConfigOptions FirebaseConfig => Configuration.GetSection("FirebaseConfig").Get<FirebaseConfigOptions>() ?? new();
-    private string FirebaseDatabaseURL => FirebaseConfig.DatabaseURL;
-    private string FirebaseApiKey => FirebaseConfig.ApiKey;
+    private string FirebaseBaseUrl => Configuration["Firebase:BaseUrl"] ?? "";
+    private string FirebaseAuthKey => Configuration["Firebase:AuthKey"] ?? "";
     private List<Asset> assets = new();
     private HashSet<Asset> selectedAssets = new HashSet<Asset>();
     private List<Asset> printAssets = new();
@@ -186,9 +184,7 @@
     {
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, $"{FirebaseDatabaseURL}/assets.json?auth={FirebaseApiKey}");
-            var response = await Http.SendAsync(request);
-
+            var response = await Http.GetAsync($"{FirebaseBaseUrl}.json?auth={FirebaseAuthKey}");
             if (response.IsSuccessStatusCode)
             {
                 var dictionary = await response.Content.ReadFromJsonAsync<Dictionary<string, Asset>>();
