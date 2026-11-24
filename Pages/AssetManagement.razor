@@ -1,28 +1,289 @@
 @page "/asset-management"
+@attribute [Authorize(Policy = "Admin")]
 @using Web_JbcHrms.Models
 @using System.Net.Http.Json
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Forms
 @inject IJSRuntime JSRuntime
 @inject HttpClient Http
+@inject NavigationManager NavigationManager
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 
 <PageTitle>Asset Management</PageTitle>
 
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Asset Management</h1>
+    <div>
+        <h1 class="h2">Asset Management</h1>
+        <p class="text-muted mb-0">Dashboard summary of asset inventory and employee assignments</p>
+    </div>
     <div class="btn-toolbar mb-2 mb-md-0">
-        <a href="asset-tagging" class="btn btn-sm btn-outline-info me-2">
+        <a href="asset-tagging" class="btn btn-sm btn-outline-info me-2 mb-2">
             <i class="bi bi-tags"></i> Asset Tagging
         </a>
-        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="OpenAddModal">
+        <InputFile id="@AssetImportFileInputId" accept=".csv" style="position: absolute; left: -9999px;" OnChange="HandleAssetImportFileChange" />
+        <label for="@AssetImportFileInputId" class="btn btn-sm btn-outline-success me-2 mb-2">
+            <i class="bi bi-upload"></i> Bulk Import CSV
+        </label>
+        <button type="button" class="btn btn-sm btn-outline-primary mb-2" @onclick="OpenAddModal">
             <i class="bi bi-plus-lg"></i> Add New Asset
         </button>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-12">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover mt-3 align-middle" id="assetTable">
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-primary h-100 shadow-sm" role="button" style="cursor: pointer;" @onclick="OpenAssetListFeature">
+            <div class="card-body">
+                <h5 class="card-title mb-1">Total Assets</h5>
+                <p class="display-6 mb-0">@TotalAssets</p>
+                <small class="text-muted">All assets in inventory</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-success h-100 shadow-sm" role="button" style="cursor: pointer;" @onclick="OpenAvailableAssets">
+            <div class="card-body">
+                <h5 class="card-title mb-1">In Hand</h5>
+                <p class="display-6 mb-0">@AvailableAssets</p>
+                <small class="text-muted">Available for assignment</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-warning h-100 shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title mb-1">Assigned</h5>
+                <p class="display-6 mb-0">@AssignedAssets</p>
+                <small class="text-muted">Assets currently assigned</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card border-secondary h-100 shadow-sm" role="button" style="cursor: pointer;" @onclick="OpenEmployeeDirectory">
+            <div class="card-body">
+                <h5 class="card-title mb-1">Employees</h5>
+                <p class="display-6 mb-0">@TotalEmployees</p>
+                <small class="text-muted">Employees in directory</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-wrap gap-2 align-items-center mb-4">
+    <!-- <button class="btn btn-outline-primary" @onclick="OpenAssetListFeature" disabled="@(assets == null || !assets.Any())">
+        <i class="bi bi-list-ul"></i> View Asset List
+    </button> -->
+    <button class="btn btn-outline-secondary" @onclick="OpenIndividualAssetsFeature" disabled="@(employees == null || !employees.Any())">
+        <i class="bi bi-person-lines-fill"></i> View Individual Assets
+    </button>
+    <button class="btn btn-outline-primary" @onclick="OpenTeamAssetsFeature" disabled="@(assets == null || !assets.Any(a => !string.IsNullOrWhiteSpace(a.AssignedTeamName)))">
+        <i class="bi bi-people"></i> View Team Assets
+    </button>
+    <button class="btn btn-outline-info" @onclick="OpenEmployeeProductHistoryFeature" disabled="@(employees == null || !employees.Any())">
+        <i class="bi bi-clock-history"></i> Employee Product History
+    </button>
+    <button class="btn btn-outline-danger" @onclick="OpenTrashFeature" disabled="@(!GetDeletedAssets().Any())">
+        <i class="bi bi-trash3"></i> Trash
+    </button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(assetImportMessage))
+{
+    <div class="alert @(assetImportSuccess ? "alert-success" : "alert-danger")">@assetImportMessage</div>
+}
+
+@if (isAssetListFeatureOpen)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h5">Asset List</h2>
+            <p class="text-muted mb-0">Browse all assets and preview/print the full inventory.</p>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-outline-secondary" @onclick="BackToDashboard">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </button>
+            <button class="btn btn-outline-primary" @onclick="PreviewAllAssetList" disabled="@(assets == null || !assets.Any())">
+                <i class="bi bi-printer"></i> Preview / Print
+            </button>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-12">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mt-3 align-middle" id="assetTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Asset Tag</th>
+                            <th>Type</th>
+                            <th>Model</th>
+                            <th>Config</th>
+                            <th>Serial Number</th>
+                            <th>Purchase Date</th>
+                            <th>Status</th>
+                            <th>Assigned To</th>
+                            <th>Notes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (GetVisibleAssets().Any())
+                        {
+                            foreach (var asset in GetVisibleAssets())
+                            {
+                                <tr>
+                                    <td><strong>@asset.AssetTag</strong></td>
+                                    <td>@asset.Type</td>
+                                    <td>@asset.Model</td>
+                                    <td>@asset.Config</td>
+                                    <td>@asset.SerialNumber</td>
+                                    <td>@(asset.PurchaseDate?.ToString("dd MMM yyyy") ?? "N/A")</td>
+                                    <td><span class="badge @(asset.Status == "Available" ? "bg-success" : "bg-secondary")">@asset.Status</span></td>
+                                    <td>
+                                        @if (!string.IsNullOrWhiteSpace(asset.AssignedTeamName))
+                                        {
+                                            <span>Team: @asset.AssignedTeamName</span>
+                                            @if (!string.IsNullOrWhiteSpace(asset.ResponsiblePerson))
+                                            {
+                                                <div class="small text-muted">Responsible: @asset.ResponsiblePerson</div>
+                                            }
+                                        }
+                                        else if (asset.AssignedEmployeeID.HasValue)
+                                        {
+                                            var emp = employees?.FirstOrDefault(e => e.EmployeeID == asset.AssignedEmployeeID.Value);
+                                            if (emp != null)
+                                            {
+                                                <span>@emp.EmployeeCode - @emp.EmployeeName</span>
+                                            }
+                                            else
+                                            {
+                                                <span>Emp ID: @asset.AssignedEmployeeID.Value</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Unassigned</span>
+                                        }
+                                    </td>
+                                    <td>@asset.Notes</td>
+                                    <td class="text-nowrap">
+                                        <button class="btn btn-sm btn-outline-secondary me-1" title="Edit" @onclick="() => OpenEditModal(asset)">
+                                            <i class="bi bi-pencil"></i> Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger me-1" title="Delete" @onclick="() => OpenDeleteModal(asset)">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-info" title="History" @onclick="() => ShowHistory(asset)">
+                                            <i class="bi bi-clock-history"></i> History
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="10" class="text-center py-4 text-muted">No assets found. Click "Add New Asset" to create one.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+else if (isAvailableAssetsFeatureOpen)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h5">In Hand Assets</h2>
+            <p class="text-muted mb-0">Browse all assets currently available for assignment.</p>
+        </div>
+        <button class="btn btn-outline-secondary" @onclick="BackToDashboard">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </button>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover mt-3 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Asset Tag</th>
+                    <th>Type</th>
+                    <th>Model</th>
+                    <th>Config</th>
+                    <th>Serial Number</th>
+                    <th>Purchase Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var asset in GetAvailableAssets())
+                {
+                    <tr>
+                        <td><strong>@asset.AssetTag</strong></td>
+                        <td>@asset.Type</td>
+                        <td>@asset.Model</td>
+                        <td>@asset.Config</td>
+                        <td>@asset.SerialNumber</td>
+                        <td>@(asset.PurchaseDate?.ToString("dd MMM yyyy") ?? "N/A")</td>
+                        <td class="text-nowrap">
+                            <button class="btn btn-sm btn-outline-secondary me-1" title="Edit" @onclick="() => OpenEditModal(asset)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger me-1" title="Delete" @onclick="() => OpenDeleteModal(asset)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenAssignModal(asset)">
+                                <i class="bi bi-person-plus"></i> Assign
+                            </button>
+                        </td>
+                    </tr>
+                }
+                @if (!GetAvailableAssets().Any())
+                {
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">No assets are currently in hand.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else if (isIndividualAssetsFeatureOpen)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h5">Individual Assets</h2>
+            <p class="text-muted mb-0">Select an employee to preview and print assigned assets.</p>
+        </div>
+        <button class="btn btn-outline-secondary" @onclick="BackToDashboard">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </button>
+    </div>
+    <div class="row mb-3">
+        <div class="col-md-6 col-lg-4">
+            <label class="form-label">Select Employee</label>
+            <select class="form-select" @bind="selectedEmployeeForAssetList" @bind:after="UpdateSelectedEmployeeAssets">
+                <option value="">-- Select Employee --</option>
+                @foreach (var employee in employees ?? Enumerable.Empty<EmployeeDirectoryEntry>())
+                {
+                    <option value="@employee.EmployeeID">@employee.EmployeeCode - @employee.EmployeeName</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-6 col-lg-4 d-flex align-items-end gap-2">
+            <button class="btn btn-outline-primary" @onclick="PreviewIndividualAssetList" disabled="@(selectedEmployeeForAssetList == null)">
+                <i class="bi bi-printer"></i> Preview / Print
+            </button>
+        </div>
+    </div>
+    @if (selectedEmployeeForAssetList.HasValue && printAssetList.Any())
+    {
+        <div class="alert alert-info">
+            Showing assets assigned to <strong>@SelectedEmployee?.EmployeeCode - @SelectedEmployee?.EmployeeName</strong> (@printAssetList.Count items).
+        </div>
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered table-sm">
                 <thead class="table-light">
                     <tr>
                         <th>Asset Tag</th>
@@ -32,15 +293,168 @@
                         <th>Serial Number</th>
                         <th>Purchase Date</th>
                         <th>Status</th>
-                        <th>Assigned To</th>
                         <th>Notes</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @if (assets != null && assets.Any())
+                    @foreach (var asset in printAssetList)
                     {
-                        foreach (var asset in assets)
+                        <tr>
+                            <td><strong>@asset.AssetTag</strong></td>
+                            <td>@asset.Type</td>
+                            <td>@asset.Model</td>
+                            <td>@asset.Config</td>
+                            <td>@asset.SerialNumber</td>
+                            <td>@(asset.PurchaseDate?.ToString("dd MMM yyyy") ?? "N/A")</td>
+                            <td>@asset.Status</td>
+                            <td>@asset.Notes</td>
+                            <td class="text-nowrap">
+                                <button class="btn btn-sm btn-outline-secondary me-1" title="Edit" @onclick="() => OpenEditModal(asset)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" title="Delete" @onclick="() => OpenDeleteModal(asset)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else if (selectedEmployeeForAssetList.HasValue)
+    {
+        <div class="alert alert-warning">No assets assigned to the selected employee.</div>
+    }
+}
+else if (isTeamAssetsFeatureOpen)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h5">Team Assets</h2>
+            <p class="text-muted mb-0">Browse assets assigned to teams and view the responsible person.</p>
+        </div>
+        <button class="btn btn-outline-secondary" @onclick="BackToDashboard">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </button>
+    </div>
+    <div class="row mb-3">
+        <div class="col-md-6 col-lg-4">
+            <label class="form-label">Filter by Team</label>
+            <select class="form-select" @bind="selectedTeamForAssetList">
+                <option value="">-- All Teams --</option>
+                @foreach (var teamName in TeamNames)
+                {
+                    <option value="@teamName">@teamName</option>
+                }
+            </select>
+        </div>
+    </div>
+    <div class="alert alert-info">
+        Showing @GetTeamAssets().Count() team-assigned asset(s).
+    </div>
+    <div class="table-responsive mb-4">
+        <table class="table table-bordered table-sm">
+            <thead class="table-light">
+                <tr>
+                    <th>Asset Tag</th>
+                    <th>Type</th>
+                    <th>Model</th>
+                    <th>Config</th>
+                    <th>Serial Number</th>
+                    <th>Purchase Date</th>
+                    <th>Team</th>
+                    <th>Responsible</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var asset in GetTeamAssets())
+                {
+                    <tr>
+                        <td><strong>@asset.AssetTag</strong></td>
+                        <td>@asset.Type</td>
+                        <td>@asset.Model</td>
+                        <td>@asset.Config</td>
+                        <td>@asset.SerialNumber</td>
+                        <td>@(asset.PurchaseDate?.ToString("dd MMM yyyy") ?? "N/A")</td>
+                        <td>@asset.AssignedTeamName</td>
+                        <td>@asset.ResponsiblePerson</td>
+                        <td>@asset.Status</td>
+                        <td>@asset.Notes</td>
+                        <td class="text-nowrap">
+                            <button class="btn btn-sm btn-outline-secondary me-1" title="Edit" @onclick="() => OpenEditModal(asset)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger me-1" title="Delete" @onclick="() => OpenDeleteModal(asset)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" title="Reassign" @onclick="() => OpenAssignModal(asset)">
+                                <i class="bi bi-person-plus"></i> Reassign
+                            </button>
+                        </td>
+                    </tr>
+                }
+                @if (!GetTeamAssets().Any())
+                {
+                    <tr>
+                        <td colspan="11" class="text-center py-4 text-muted">No team-assigned assets found.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else if (isEmployeeHistoryFeatureOpen)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h5">Employee Product History</h2>
+            <p class="text-muted mb-0">Select an employee to see their assigned product history and asset details.</p>
+        </div>
+        <button class="btn btn-outline-secondary" @onclick="BackToDashboard">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </button>
+    </div>
+    <div class="row mb-3">
+        <div class="col-md-6 col-lg-4">
+            <label class="form-label">Select Employee</label>
+            <select class="form-select" @bind="selectedEmployeeForProductHistory" @bind:after="UpdateSelectedEmployeeProductHistory">
+                <option value="">-- Select Employee --</option>
+                @foreach (var employee in employees ?? Enumerable.Empty<EmployeeDirectoryEntry>())
+                {
+                    <option value="@employee.EmployeeID">@employee.EmployeeCode - @employee.EmployeeName</option>
+                }
+            </select>
+        </div>
+    </div>
+    @if (selectedEmployeeForProductHistory.HasValue && SelectedProductHistoryEmployee != null)
+    {
+        @if (productHistoryAssets.Any())
+        {
+            <div class="alert alert-info">
+                Showing @productHistoryAssets.Count products assigned to <strong>@SelectedProductHistoryEmployee.EmployeeCode - @SelectedProductHistoryEmployee.EmployeeName</strong>.
+            </div>
+            <div class="table-responsive mb-4">
+                <table class="table table-bordered table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Asset Tag</th>
+                            <th>Type</th>
+                            <th>Model</th>
+                            <th>Config</th>
+                            <th>Serial Number</th>
+                            <th>Purchase Date</th>
+                            <th>Status</th>
+                            <th>History Entries</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var asset in productHistoryAssets)
                         {
                             <tr>
                                 <td><strong>@asset.AssetTag</strong></td>
@@ -49,48 +463,83 @@
                                 <td>@asset.Config</td>
                                 <td>@asset.SerialNumber</td>
                                 <td>@(asset.PurchaseDate?.ToString("dd MMM yyyy") ?? "N/A")</td>
-                                <td><span class="badge @(asset.Status == "Available" ? "bg-success" : "bg-secondary")">@asset.Status</span></td>
-                                <td>
-                                    @if (asset.AssignedEmployeeID.HasValue)
-                                    {
-                                        var emp = employees.FirstOrDefault(e => e.EmployeeID == asset.AssignedEmployeeID.Value);
-                                        if (emp != null)
-                                        {
-                                            <span>@emp.Salutation @emp.FirstName @emp.LastName</span>
-                                        }
-                                        else
-                                        {
-                                            <span>Emp ID: @asset.AssignedEmployeeID.Value</span>
-                                        }
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted">Unassigned</span>
-                                    }
-                                </td>
-                                <td>@asset.Notes</td>
+                                <td>@asset.Status</td>
+                                <td>@(asset.History?.Count ?? 0)</td>
                                 <td class="text-nowrap">
-                                    <button class="btn btn-sm btn-outline-secondary me-1" title="Edit" @onclick="() => OpenEditModal(asset)">
-                                        <i class="bi bi-pencil"></i> Edit
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-info" title="History" @onclick="() => ShowHistory(asset)">
-                                        <i class="bi bi-clock-history"></i> History
+                                    <button class="btn btn-sm btn-outline-info" @onclick="() => ShowHistory(asset)">
+                                        <i class="bi bi-clock-history"></i> View History
                                     </button>
                                 </td>
                             </tr>
                         }
-                    }
-                    else
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-warning">No assigned products found for this employee.</div>
+        }
+    }
+}
+else if (isTrashFeatureOpen)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h5">Trash</h2>
+            <p class="text-muted mb-0">Soft deleted assets are shown here. Restore is enabled.</p>
+        </div>
+        <button class="btn btn-outline-secondary" @onclick="BackToDashboard">
+            <i class="bi bi-arrow-left"></i> Back to Dashboard
+        </button>
+    </div>
+    <div class="table-responsive mb-4">
+        <table class="table table-bordered table-sm">
+            <thead class="table-light">
+                <tr>
+                    <th>Asset Tag</th>
+                    <th>Type</th>
+                    <th>Model</th>
+                    <th>Config</th>
+                    <th>Serial Number</th>
+                    <th>Purchase Date</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (GetDeletedAssets().Any())
+                {
+                    @foreach (var asset in GetDeletedAssets())
                     {
                         <tr>
-                            <td colspan="10" class="text-center py-4 text-muted">No assets found. Click "Add New Asset" to create one.</td>
+                            <td><strong>@asset.AssetTag</strong></td>
+                            <td>@asset.Type</td>
+                            <td>@asset.Model</td>
+                            <td>@asset.Config</td>
+                            <td>@asset.SerialNumber</td>
+                            <td>@(asset.PurchaseDate?.ToString("dd MMM yyyy") ?? "N/A")</td>
+                            <td>@asset.Status</td>
+                            <td>@asset.Notes</td>
+                            <td class="text-nowrap">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => RestoreAsset(asset)">
+                                    <i class="bi bi-arrow-counterclockwise"></i> Restore
+                                </button>
+                            </td>
                         </tr>
                     }
-                </tbody>
-            </table>
-        </div>
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">No items in trash.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </div>
-</div>
+}
 
 <!-- Add/Edit Asset Modal -->
 <div class="modal fade" id="addAssetModal" tabindex="-1" aria-labelledby="addAssetModalLabel" aria-hidden="true" data-bs-backdrop="static">
@@ -106,14 +555,20 @@
                         <label class="form-label">Asset Type</label>
                         <select class="form-select" @bind="newAssetType" @bind:after="GenerateAssetTag" disabled="@isEditing">
                             <option value="">-- Select Type --</option>
-                            <option value="Laptop">Laptop</option>
-                            <option value="Macbook">Macbook</option>
-                            <option value="Mac Mini">Mac Mini</option>
-                            <option value="Monitor">Monitor</option>
-                            <option value="Desktop">Desktop</option>
-                            <option value="Accessories">Accessories</option>
+                            @foreach (var assetType in assetTypeOptions)
+                            {
+                                <option value="@assetType">@assetType</option>
+                            }
                         </select>
                     </div>
+
+                    @if (newAssetType == "Other")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Custom Asset Type</label>
+                            <input type="text" class="form-control" @bind="customAssetType" @bind:event="oninput" @bind:after="GenerateAssetTag" placeholder="e.g. SSD Enclosure" disabled="@isEditing" />
+                        </div>
+                    }
                     
                     <div class="mb-3">
                         <label class="form-label">Asset Tag (Auto-generated)</label>
@@ -121,13 +576,55 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Model (Optional)</label>
+                        <label class="form-label">Brand</label>
+                        <select class="form-select" @bind="newBrand">
+                            <option value="">-- Select Brand --</option>
+                            @foreach (var brand in GetBrandOptions())
+                            {
+                                <option value="@brand">@brand</option>
+                            }
+                        </select>
+                    </div>
+
+                    @if (newBrand == "Other")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Custom Brand</label>
+                            <input type="text" class="form-control" @bind="customBrand" placeholder="e.g. No Brand" />
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Model</label>
                         <input type="text" class="form-control" @bind="newModel" placeholder="e.g. M1 2020" />
                     </div>
 
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">RAM</label>
+                            <select class="form-select" @bind="newRam">
+                                <option value="">-- Select RAM --</option>
+                                @foreach (var ram in ramOptions)
+                                {
+                                    <option value="@ram">@ram</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">SSD</label>
+                            <select class="form-select" @bind="newSsd">
+                                <option value="">-- Select SSD --</option>
+                                @foreach (var ssd in ssdOptions)
+                                {
+                                    <option value="@ssd">@ssd</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
-                        <label class="form-label">Config (Optional)</label>
-                        <input type="text" class="form-control" @bind="newConfig" placeholder="e.g. 16GB RAM, 512GB SSD" />
+                        <label class="form-label">Additional Config (Optional)</label>
+                        <input type="text" class="form-control" @bind="newAdditionalConfig" placeholder="e.g. Type-C Hub, Intel i7" />
                     </div>
 
                     <div class="mb-3">
@@ -153,15 +650,36 @@
                     @if (newStatus == "Assigned")
                     {
                         <div class="mb-3">
-                            <label class="form-label">Assign to Employee</label>
-                            <select class="form-select" @bind="newAssignedEmployeeID">
-                                <option value="">-- Select Employee --</option>
-                                @foreach (var employee in employees)
-                                {
-                                    <option value="@employee.EmployeeID">@employee.Salutation @employee.FirstName @employee.LastName</option>
-                                }
+                            <label class="form-label">Assignment Type</label>
+                            <select class="form-select" @bind="newAssignmentType">
+                                <option value="Individual">Individual</option>
+                                <option value="Team">Team</option>
                             </select>
                         </div>
+                        @if (newAssignmentType == "Individual")
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Assign to Employee</label>
+                                <select class="form-select" @bind="newAssignedEmployeeID">
+                                    <option value="">-- Select Employee --</option>
+                                    @foreach (var employee in employees ?? Enumerable.Empty<EmployeeDirectoryEntry>())
+                                    {
+                                        <option value="@employee.EmployeeID">@employee.EmployeeCode - @employee.EmployeeName</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Team Name</label>
+                                <input type="text" class="form-control" @bind="newAssignedTeamName" placeholder="e.g. Billing Team" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Responsible Person</label>
+                                <input type="text" class="form-control" @bind="newResponsiblePerson" placeholder="e.g. John Doe" />
+                            </div>
+                        }
                     }
 
                     <div class="mb-3">
@@ -172,7 +690,166 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @onclick="CloseAddModal">Cancel</button>
-                <button type="button" class="btn btn-primary" @onclick="SaveAsset" disabled="@string.IsNullOrWhiteSpace(newAssetType)">Save Asset</button>
+                <button type="button" class="btn btn-primary" @onclick="SaveAsset" disabled="@string.IsNullOrWhiteSpace(GetEffectiveAssetType())">Save Asset</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Preview Modal -->
+<div class="modal fade" id="importPreviewModal" tabindex="-1" aria-labelledby="importPreviewModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importPreviewModalLabel">Preview Assets to Import (@importPreviewData?.Count ?? 0 rows)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseImportPreview"></button>
+            </div>
+            <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                @if (importPreviewData != null && importPreviewData.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th><input type="checkbox" @onchange="e => ToggleAllImportRows(e.Value is bool value && value)" title="Select all" /></th>
+                                    <th>Type</th>
+                                    <th>Brand / Model</th>
+                                    <th>Serial</th>
+                                    <th>Assigned To</th>
+                                    <th>Issue</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var preview in importPreviewData)
+                                {
+                                    <tr class="@(preview.IsDuplicate ? "table-warning" : "")‍">
+                                        <td>
+                                            <input type="checkbox" @bind="preview.IsSelected" />
+                                        </td>
+                                        <td>@preview.Asset.Type</td>
+                                        <td>@preview.Asset.Model</td>
+                                        <td><code style="font-size: 0.8em;">@preview.Asset.SerialNumber</code></td>
+                                        <td>@(preview.AssignedEmployeeName ?? "Unassigned")</td>
+                                        <td>
+                                            @if (preview.IsDuplicate)
+                                            {
+                                                <span class="badge bg-warning text-dark">Possible duplicate</span>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(preview.ValidationWarning))
+                                            {
+                                                <span class="badge bg-info">@preview.ValidationWarning</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted">No assets to preview.</p>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @onclick="CloseImportPreview">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="ConfirmImportAssets" disabled="@(!importPreviewData?.Any(p => p.IsSelected) ?? true)">
+                    <i class="bi bi-check-circle"></i> Import Selected (@(importPreviewData?.Count(p => p.IsSelected) ?? 0))
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Individual Asset List Preview Modal -->
+<div class="modal fade" id="individualAssetListPreviewModal" tabindex="-1" aria-labelledby="individualAssetListPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="individualAssetListPreviewModalLabel">Preview - @AssetListPreviewTitle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <div id="individualAssetListPrint">
+                    <div class="report-a4-container">
+                        <div class="report-a4-page p-4 bg-white" style="justify-content: initial;">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <div>
+                                    <h2 class="h4 mb-1">Individual Asset List</h2>
+                                    
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="row g-2">
+                                    <div class="col-sm-6 col-lg-4">
+                                        <div class="border rounded p-2 bg-light h-100">
+                                            <div class="text-muted small mb-1">Employee</div>
+                                            <div class="fw-semibold">@SelectedEmployee?.EmployeeCode - @SelectedEmployee?.EmployeeName</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6 col-lg-4">
+                                        <div class="border rounded p-2 bg-light h-100">
+                                            <div class="text-muted small mb-1">Total Assets</div>
+                                            <div class="fw-semibold">@printAssetList.Count</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6 col-lg-4">
+                                        <div class="border rounded p-2 bg-light h-100">
+                                            <div class="text-muted small mb-1">Generated</div>
+                                            <div class="fw-semibold">@DateTime.Now.ToString("dd MMM yyyy HH:mm")</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            @if (printAssetList.Any())
+                            {
+                                <div class="row g-2">
+                                    @foreach (var asset in GetOrderedPrintAssetList())
+                                    {
+                                        <div class="col-12 col-md-6 col-xl-4">
+                                            <div class="card h-100 shadow-sm border-secondary">
+                                                <div class="card-body p-2">
+                                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                                        <div>
+                                                            <h5 class="card-title mb-1">@asset.AssetTag</h5>
+                                                            <p class="text-muted small mb-0">@asset.Type</p>
+                                                        </div>
+                                                    </div>
+                                                    @if (ShouldShowModelAndSerial(asset))
+                                                    {
+                                                        <p class="mb-1"><strong>Model:</strong> @asset.Model</p>
+                                                    }
+                                                    @if (ShouldShowConfig(asset))
+                                                    {
+                                                        <p class="mb-1"><strong>Config:</strong> @asset.Config</p>
+                                                    }
+                                                    @if (ShouldShowModelAndSerial(asset))
+                                                    {
+                                                        <p class="mb-1"><strong>Serial:</strong> @asset.SerialNumber</p>
+                                                    }
+                                                    @if (!string.IsNullOrWhiteSpace(asset.Notes))
+                                                    {
+                                                        <p class="mb-0"><strong>Notes:</strong> @asset.Notes</p>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-warning mb-0">No assets available for preview.</div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="ConfirmIndividualAssetListPrint">
+                    <i class="bi bi-printer"></i> Print Asset List
+                </button>
             </div>
         </div>
     </div>
@@ -217,25 +894,176 @@
     </div>
 </div>
 
+<!-- Assign Asset Modal -->
+<div class="modal fade" id="assignAssetModal" tabindex="-1" aria-labelledby="assignAssetModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="assignAssetModalLabel">Assign Asset @(selectedAssetToAssign?.AssetTag ?? "")</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseAssignModal"></button>
+            </div>
+            <div class="modal-body">
+                @if (selectedAssetToAssign != null)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">Asset</label>
+                        <input type="text" class="form-control bg-light" value="@selectedAssetToAssign.AssetTag" readonly />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Assignment Type</label>
+                        <select class="form-select" @bind="selectedAssignmentType">
+                            <option value="Individual">Individual</option>
+                            <option value="Team">Team</option>
+                        </select>
+                    </div>
+                    @if (selectedAssignmentType == "Individual")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Employee</label>
+                            <select class="form-select" @bind="selectedAssignmentEmployeeID">
+                                <option value="">-- Select Employee --</option>
+                                @foreach (var employee in employees ?? Enumerable.Empty<EmployeeDirectoryEntry>())
+                                {
+                                    <option value="@employee.EmployeeID">@employee.EmployeeCode - @employee.EmployeeName</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Team Name</label>
+                            <input type="text" class="form-control" @bind="selectedAssignmentTeamName" placeholder="e.g. Billing Team" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Responsible Person</label>
+                            <input type="text" class="form-control" @bind="selectedAssignmentResponsiblePerson" placeholder="e.g. John Doe" />
+                        </div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" rows="3" @bind="selectedAssignmentNotes"></textarea>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @onclick="CloseAssignModal">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="AssignSelectedAsset" disabled="@(selectedAssetToAssign == null || (selectedAssignmentType == "Individual" && !selectedAssignmentEmployeeID.HasValue) || (selectedAssignmentType == "Team" && string.IsNullOrWhiteSpace(selectedAssignmentTeamName)) || (selectedAssignmentType == "Team" && string.IsNullOrWhiteSpace(selectedAssignmentResponsiblePerson)))">
+                    <i class="bi bi-check2-circle"></i> Assign Asset
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Asset Modal -->
+<div class="modal fade" id="deleteAssetModal" tabindex="-1" aria-labelledby="deleteAssetModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteAssetModalLabel">Delete Asset</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="CloseDeleteModal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to move <strong>@selectedAssetToDelete?.AssetTag</strong> to trash?</p>
+                <p class="text-muted">This is a soft delete; the item is retained in Trash.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @onclick="CloseDeleteModal">Cancel</button>
+                <button type="button" class="btn btn-danger" @onclick="DeleteSelectedAsset" disabled="@(selectedAssetToDelete == null)">
+                    <i class="bi bi-trash"></i> Move to Trash
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @code {
-    private string FirebaseBaseUrl => Configuration["Firebase:BaseUrl"] ?? "";
-    private string FirebaseAuthKey => Configuration["Firebase:AuthKey"] ?? "";
+    private const string AssetImportFileInputId = "assetImportFileInput";
+    private FirebaseConfigOptions FirebaseConfig => Configuration.GetSection("FirebaseConfig").Get<FirebaseConfigOptions>() ?? new();
+    private string FirebaseDatabaseURL => FirebaseConfig.DatabaseURL;
+    private string FirebaseApiKey => FirebaseConfig.ApiKey;
+    private const string EmployeeDirectoryCacheKey = "employeeDirectoryEntries";
     private List<Asset> assets = new();
-    private List<Employee> employees = new();
+    private List<EmployeeDirectoryEntry> employees = new();
+    private List<Asset> printAssetList = new();
+    private List<Asset> productHistoryAssets = new();
+    private int? selectedEmployeeForAssetList;
+    private string selectedTeamForAssetList = string.Empty;
+    private int? selectedEmployeeForProductHistory;
+    private Asset? selectedAssetToAssign;
+    private Asset? selectedAssetToDelete;
+    private int? selectedAssignmentEmployeeID;
+    private string selectedAssignmentType = "Individual";
+    private string selectedAssignmentTeamName = string.Empty;
+    private string selectedAssignmentResponsiblePerson = string.Empty;
+    private string selectedAssignmentNotes = string.Empty;
+    private bool isEmployeePreview = false;
+    private bool isAssetListFeatureOpen = false;
+    private bool isIndividualAssetsFeatureOpen = false;
+    private bool isTeamAssetsFeatureOpen = false;
+    private bool isEmployeeHistoryFeatureOpen = false;
+    private bool isAvailableAssetsFeatureOpen = false;
+    private bool isTrashFeatureOpen = false;
 
     private bool isEditing = false;
+
+    private int TotalAssets => assets.Count;
+    private int AssignedAssets => assets.Count(a => !a.IsDeleted && string.Equals(a.Status, "Assigned", StringComparison.OrdinalIgnoreCase));
+    private int TeamAssetsCount => assets.Count(a => !a.IsDeleted && !string.IsNullOrWhiteSpace(a.AssignedTeamName));
+    private int AvailableAssets => assets.Count(a => a.Status == "Available");
+    private int TotalEmployees => employees.Count;
     private Asset? historyAsset = null;
+    private bool dataTableInitialized = false;
+    private string? assetImportMessage;
+    private bool assetImportSuccess;
+    private List<ImportAssetPreview>? importPreviewData;
+    private string? importPreviewFileName;
 
     // Form fields
     private string newAssetType = "";
+    private string customAssetType = "";
     private string newAssetTag = "";
     private string newSerialNumber = "";
+    private string newBrand = "";
+    private string customBrand = "";
     private string newModel = "";
-    private string newConfig = "";
+    private string newRam = "";
+    private string newSsd = "";
+    private string newAdditionalConfig = "";
     private DateTime? newPurchaseDate = null;
     private string newStatus = "Available";
+    private string newAssignmentType = "Individual";
     private int? newAssignedEmployeeID = null;
+    private string newAssignedTeamName = string.Empty;
+    private string newResponsiblePerson = string.Empty;
     private string newNotes = "";
+
+    private readonly List<string> assetTypeOptions = new()
+    {
+        "Laptop","Macbook","Macmini", "Monitor", "Keyboard", "Mouse", "Dongle", "Mobile", "USB Cable", "USB Hub", "Webcam", "SSD", "UPS", "Laptop Stand", "Accessories", "Desktop", "Other"
+    };
+
+    private readonly List<string> ramOptions = new() { "4GB", "8GB", "16GB", "32GB", "64GB", "128GB", "N/A" };
+    private readonly List<string> ssdOptions = new() { "128GB", "256GB", "512GB", "1TB", "2TB", "N/A" };
+
+    private readonly Dictionary<string, List<string>> brandOptionsByType = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Laptop"] = new() { "Lenovo ThinkPad", "Lenovo", "HP", "Dell", "Asus", "Acer", "Other" },
+        ["Macbook"] = new() { "Apple" },
+        ["Macmini"] = new() { "Apple" },
+        ["Monitor"] = new() { "HP", "ViewSonic", "Dell", "LG", "Samsung", "Other" },
+        ["Keyboard"] = new() { "A4Tech", "Logitech", "HP", "Dell", "Other" },
+        ["Mouse"] = new() { "A4Tech", "Logitech", "HP", "Dell", "Other" },
+        ["Dongle"] = new() { "Ugreen", "Yuanxin", "TP Link", "HAVIT", "Non Brand", "Other" },
+        ["Mobile"] = new() { "Apple iPhone", "Google Pixel", "Samsung Galaxy", "Oppo", "Motorola", "Other" },
+        ["USB Cable"] = new() { "Ugreen", "Yuanxin", "Non Brand", "Other" },
+        ["USB Hub"] = new() { "Ugreen", "Yuanxin", "TP Link", "Other" },
+        ["Webcam"] = new() { "Logitech", "HP", "A4Tech", "Other" },
+        ["SSD"] = new() { "Western Digital", "Samsung", "Kingston", "Other" },
+        ["UPS"] = new() { "DigitalX", "APC", "Other" },
+        ["Desktop"] = new() { "Other" }
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -247,13 +1075,16 @@
     {
         try
         {
-            var response = await Http.GetAsync($"{FirebaseBaseUrl}.json?auth={FirebaseAuthKey}");
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{FirebaseDatabaseURL}/assets.json?auth={FirebaseApiKey}");
+            var response = await Http.SendAsync(request);
+
             if (response.IsSuccessStatusCode)
             {
                 var dictionary = await response.Content.ReadFromJsonAsync<Dictionary<string, Asset>>();
                 if (dictionary != null)
                 {
                     assets = dictionary.Values.ToList();
+                    dataTableInitialized = false;
                 }
             }
         }
@@ -265,17 +1096,23 @@
 
     private async Task LoadEmployees()
     {
-        // Fallback or read from LocalStorage
         try
         {
-            var storedEmployees = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "employees");
-            if (!string.IsNullOrEmpty(storedEmployees))
+            var cachedEmployees = await LoadEmployeesFromLocalStorage();
+            if (cachedEmployees.Any())
             {
-                var options = new System.Text.Json.JsonSerializerOptions 
-                { 
-                    PropertyNameCaseInsensitive = true
-                };
-                employees = System.Text.Json.JsonSerializer.Deserialize<List<Employee>>(storedEmployees, options) ?? new();
+                employees = cachedEmployees;
+                return;
+            }
+
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{FirebaseDatabaseURL}/employees.json?auth={FirebaseApiKey}");
+            var response = await Http.SendAsync(request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+                employees = ParseEmployees(payload);
+                await SaveEmployeesToLocalStorage();
             }
         }
         catch
@@ -283,13 +1120,378 @@
             employees = new();
         }
     }
+
+    private async Task<List<EmployeeDirectoryEntry>> LoadEmployeesFromLocalStorage()
+    {
+        var json = await JSRuntime.InvokeAsync<string>("localStorage.getItem", EmployeeDirectoryCacheKey);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return new List<EmployeeDirectoryEntry>();
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<EmployeeDirectoryEntry>>(json, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            }) ?? new List<EmployeeDirectoryEntry>();
+        }
+        catch
+        {
+            return new List<EmployeeDirectoryEntry>();
+        }
+    }
+
+    private async Task SaveEmployeesToLocalStorage()
+    {
+        var json = JsonSerializer.Serialize(employees);
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", EmployeeDirectoryCacheKey, json);
+    }
+
+    private static List<EmployeeDirectoryEntry> ParseEmployees(JsonElement payload)
+    {
+        var parsedEmployees = new List<EmployeeDirectoryEntry>();
+        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+        if (payload.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in payload.EnumerateObject())
+            {
+                if (property.Value.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                var employee = property.Value.Deserialize<EmployeeDirectoryEntry>(options);
+                if (employee != null)
+                {
+                    parsedEmployees.Add(employee);
+                }
+            }
+        }
+        else if (payload.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in payload.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                var employee = item.Deserialize<EmployeeDirectoryEntry>(options);
+                if (employee != null)
+                {
+                    parsedEmployees.Add(employee);
+                }
+            }
+        }
+
+        return parsedEmployees.OrderBy(e => e.EmployeeID).ToList();
+    }
     
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && assets.Any())
+        if (isAssetListFeatureOpen && !dataTableInitialized && assets.Any())
         {
             await JSRuntime.InvokeVoidAsync("initDataTable", "assetTable");
+            dataTableInitialized = true;
         }
+    }
+
+    private void OpenAssetListFeature()
+    {
+        isAssetListFeatureOpen = true;
+        isIndividualAssetsFeatureOpen = false;
+        selectedEmployeeForAssetList = null;
+        dataTableInitialized = false;
+    }
+
+    private void OpenIndividualAssetsFeature()
+    {
+        isIndividualAssetsFeatureOpen = true;
+        isTeamAssetsFeatureOpen = false;
+        isAssetListFeatureOpen = false;
+        isEmployeeHistoryFeatureOpen = false;
+        isAvailableAssetsFeatureOpen = false;
+        selectedEmployeeForAssetList = null;
+        printAssetList.Clear();
+    }
+
+    private void OpenTeamAssetsFeature()
+    {
+        isTeamAssetsFeatureOpen = true;
+        isIndividualAssetsFeatureOpen = false;
+        isAssetListFeatureOpen = false;
+        isEmployeeHistoryFeatureOpen = false;
+        isAvailableAssetsFeatureOpen = false;
+        selectedTeamForAssetList = string.Empty;
+    }
+
+    private void OpenAvailableAssets()
+    {
+        isAvailableAssetsFeatureOpen = true;
+        isAssetListFeatureOpen = false;
+        isIndividualAssetsFeatureOpen = false;
+        isEmployeeHistoryFeatureOpen = false;
+        selectedAssetToAssign = null;
+        selectedAssignmentEmployeeID = null;
+        selectedAssignmentNotes = string.Empty;
+    }
+
+    private void OpenEmployeeProductHistoryFeature()
+    {
+        isEmployeeHistoryFeatureOpen = true;
+        isAssetListFeatureOpen = false;
+        isIndividualAssetsFeatureOpen = false;
+        isTeamAssetsFeatureOpen = false;
+        isAvailableAssetsFeatureOpen = false;
+        selectedEmployeeForProductHistory = null;
+        productHistoryAssets.Clear();
+    }
+
+    private void OpenEmployeeDirectory()
+    {
+        NavigationManager.NavigateTo("/employees");
+    }
+
+    private void BackToDashboard()
+    {
+        isAssetListFeatureOpen = false;
+        isIndividualAssetsFeatureOpen = false;
+        isTeamAssetsFeatureOpen = false;
+        isEmployeeHistoryFeatureOpen = false;
+        isAvailableAssetsFeatureOpen = false;
+        isTrashFeatureOpen = false;
+        selectedEmployeeForAssetList = null;
+        selectedTeamForAssetList = string.Empty;
+        selectedEmployeeForProductHistory = null;
+        selectedAssetToAssign = null;
+        selectedAssetToDelete = null;
+        selectedAssignmentEmployeeID = null;
+        selectedAssignmentNotes = string.Empty;
+        printAssetList.Clear();
+        productHistoryAssets.Clear();
+    }
+
+    private void OpenTrashFeature()
+    {
+        isTrashFeatureOpen = true;
+        isAssetListFeatureOpen = false;
+        isIndividualAssetsFeatureOpen = false;
+        isTeamAssetsFeatureOpen = false;
+        isEmployeeHistoryFeatureOpen = false;
+        isAvailableAssetsFeatureOpen = false;
+        selectedAssetToAssign = null;
+        selectedAssetToDelete = null;
+        selectedAssignmentEmployeeID = null;
+        selectedAssignmentNotes = string.Empty;
+    }
+
+    private async Task OpenAssignModal(Asset asset)
+    {
+        selectedAssetToAssign = asset;
+        selectedAssignmentType = !string.IsNullOrWhiteSpace(asset.AssignedTeamName) ? "Team" : "Individual";
+        selectedAssignmentEmployeeID = selectedAssignmentType == "Individual" ? asset.AssignedEmployeeID : null;
+        selectedAssignmentTeamName = selectedAssignmentType == "Team" ? asset.AssignedTeamName ?? string.Empty : string.Empty;
+        selectedAssignmentResponsiblePerson = selectedAssignmentType == "Team" ? asset.ResponsiblePerson ?? string.Empty : string.Empty;
+        selectedAssignmentNotes = asset.Notes ?? string.Empty;
+        await JSRuntime.InvokeVoidAsync("showModal", "assignAssetModal");
+    }
+
+    private async Task CloseAssignModal()
+    {
+        await JSRuntime.InvokeVoidAsync("hideModal", "assignAssetModal");
+        selectedAssetToAssign = null;
+        selectedAssignmentType = "Individual";
+        selectedAssignmentEmployeeID = null;
+        selectedAssignmentTeamName = string.Empty;
+        selectedAssignmentResponsiblePerson = string.Empty;
+        selectedAssignmentNotes = string.Empty;
+    }
+
+    private async Task OpenDeleteModal(Asset asset)
+    {
+        selectedAssetToDelete = asset;
+        await JSRuntime.InvokeVoidAsync("showModal", "deleteAssetModal");
+    }
+
+    private async Task CloseDeleteModal()
+    {
+        await JSRuntime.InvokeVoidAsync("hideModal", "deleteAssetModal");
+        selectedAssetToDelete = null;
+    }
+
+    private async Task DeleteSelectedAsset()
+    {
+        if (selectedAssetToDelete == null)
+        {
+            return;
+        }
+
+        selectedAssetToDelete.IsDeleted = true;
+        selectedAssetToDelete.Status = "Deleted";
+
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Put, $"{FirebaseDatabaseURL}/assets/{selectedAssetToDelete.AssetTag}.json?auth={FirebaseApiKey}");
+            request.Content = JsonContent.Create(selectedAssetToDelete);
+
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                selectedAssetToDelete = null;
+                dataTableInitialized = false;
+                await CloseDeleteModal();
+                StateHasChanged();
+            }
+            else
+            {
+                Console.WriteLine($"Error soft deleting asset: {response.ReasonPhrase}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception deleting asset: {ex.Message}");
+        }
+    }
+
+    private async Task RestoreAsset(Asset asset)
+    {
+        if (asset == null)
+        {
+            return;
+        }
+
+        asset.IsDeleted = false;
+        asset.Status = asset.AssignedEmployeeID.HasValue ? "Assigned" : "Available";
+        if (asset.History == null)
+        {
+            asset.History = new List<AssetHistory>();
+        }
+
+        asset.History.Add(new AssetHistory
+        {
+            Action = "Restored from Trash",
+            Notes = "Asset restored via Trash view"
+        });
+
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Put, $"{FirebaseDatabaseURL}/assets/{asset.AssetTag}.json?auth={FirebaseApiKey}");
+            request.Content = JsonContent.Create(asset);
+
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                dataTableInitialized = false;
+                StateHasChanged();
+            }
+            else
+            {
+                Console.WriteLine($"Error restoring asset: {response.ReasonPhrase}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception restoring asset: {ex.Message}");
+        }
+    }
+
+    private IEnumerable<Asset> GetAvailableAssets()
+    {
+        return assets.Where(a => !a.IsDeleted && string.Equals(a.Status, "Available", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private IEnumerable<Asset> GetVisibleAssets()
+    {
+        return assets.Where(a => !a.IsDeleted);
+    }
+
+    private IEnumerable<Asset> GetTeamAssets()
+    {
+        return assets.Where(a => !a.IsDeleted && !string.IsNullOrWhiteSpace(a.AssignedTeamName)
+            && (string.IsNullOrWhiteSpace(selectedTeamForAssetList) || a.AssignedTeamName == selectedTeamForAssetList));
+    }
+
+    private IEnumerable<string> TeamNames => assets
+        .Where(a => !a.IsDeleted && !string.IsNullOrWhiteSpace(a.AssignedTeamName))
+        .Select(a => a.AssignedTeamName!.Trim())
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(name => name);
+
+    private IEnumerable<Asset> GetDeletedAssets()
+    {
+        return assets.Where(a => a.IsDeleted);
+    }
+
+    private async Task AssignSelectedAsset()
+    {
+        if (selectedAssetToAssign == null ||
+            (selectedAssignmentType == "Individual" && !selectedAssignmentEmployeeID.HasValue) ||
+            (selectedAssignmentType == "Team" && string.IsNullOrWhiteSpace(selectedAssignmentTeamName)) ||
+            (selectedAssignmentType == "Team" && string.IsNullOrWhiteSpace(selectedAssignmentResponsiblePerson)))
+        {
+            return;
+        }
+
+        selectedAssetToAssign.Status = "Assigned";
+        selectedAssetToAssign.Notes = selectedAssignmentNotes?.Trim();
+
+        if (selectedAssignmentType == "Individual")
+        {
+            selectedAssetToAssign.AssignedEmployeeID = selectedAssignmentEmployeeID;
+            selectedAssetToAssign.AssignedTeamName = null;
+            selectedAssetToAssign.ResponsiblePerson = null;
+        }
+        else
+        {
+            selectedAssetToAssign.AssignedEmployeeID = null;
+            selectedAssetToAssign.AssignedTeamName = string.IsNullOrWhiteSpace(selectedAssignmentTeamName) ? null : selectedAssignmentTeamName.Trim();
+            selectedAssetToAssign.ResponsiblePerson = string.IsNullOrWhiteSpace(selectedAssignmentResponsiblePerson) ? null : selectedAssignmentResponsiblePerson.Trim();
+        }
+
+        if (selectedAssetToAssign.History == null)
+        {
+            selectedAssetToAssign.History = new List<AssetHistory>();
+        }
+
+        var assignmentLabel = selectedAssignmentType == "Individual"
+            ? GetEmployeeName(selectedAssignmentEmployeeID.GetValueOrDefault())
+            : $"Team {selectedAssetToAssign.AssignedTeamName}{(string.IsNullOrWhiteSpace(selectedAssetToAssign.ResponsiblePerson) ? "" : $" (Responsible: {selectedAssetToAssign.ResponsiblePerson})")}";
+
+        selectedAssetToAssign.History.Add(new AssetHistory
+        {
+            Action = $"Assigned to {assignmentLabel}",
+            Notes = selectedAssignmentNotes?.Trim()
+        });
+
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Put, $"{FirebaseDatabaseURL}/assets/{selectedAssetToAssign.AssetTag}.json?auth={FirebaseApiKey}");
+            request.Content = JsonContent.Create(selectedAssetToAssign);
+
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                dataTableInitialized = false;
+                await CloseAssignModal();
+                StateHasChanged();
+            }
+            else
+            {
+                Console.WriteLine($"Error assigning asset: {response.ReasonPhrase}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception assigning asset: {ex.Message}");
+        }
+    }
+
+    private string GetEmployeeName(int id)
+    {
+        var emp = employees?.FirstOrDefault(e => e.EmployeeID == id);
+        return emp != null ? $"{emp.EmployeeCode} - {emp.EmployeeName}" : $"Emp ID: {id}";
     }
 
     private async Task OpenAddModal()
@@ -302,11 +1504,24 @@
     private async Task OpenEditModal(Asset asset)
     {
         isEditing = true;
-        newAssetType = asset.Type;
+        var mappedType = MapTypeToOption(asset.Type);
+        if (assetTypeOptions.Contains(mappedType))
+        {
+            newAssetType = mappedType;
+            customAssetType = "";
+        }
+        else
+        {
+            newAssetType = "Other";
+            customAssetType = asset.Type;
+        }
+
         newAssetTag = asset.AssetTag;
         newSerialNumber = asset.SerialNumber ?? "";
+        newBrand = "";
+        customBrand = "";
         newModel = asset.Model ?? "";
-        newConfig = asset.Config ?? "";
+        ParseConfigForEdit(asset.Config);
         newPurchaseDate = asset.PurchaseDate;
         newStatus = asset.Status ?? "Available";
         newAssignedEmployeeID = asset.AssignedEmployeeID;
@@ -333,25 +1548,303 @@
         historyAsset = null;
     }
 
+    private EmployeeDirectoryEntry? SelectedEmployee => selectedEmployeeForAssetList.HasValue
+        ? employees?.FirstOrDefault(e => e.EmployeeID == selectedEmployeeForAssetList.Value)
+        : null;
+
+    private async Task PreviewAllAssetList()
+    {
+        isEmployeePreview = false;
+        printAssetList = GetVisibleAssets().OrderBy(a => a.AssetTag).ToList();
+
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(50);
+        await JSRuntime.InvokeVoidAsync("showModal", "individualAssetListPreviewModal");
+    }
+
+    private async Task PreviewIndividualAssetList()
+    {
+        if (!selectedEmployeeForAssetList.HasValue)
+        {
+            return;
+        }
+
+        isEmployeePreview = true;
+        UpdateSelectedEmployeeAssets();
+
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(50);
+        await JSRuntime.InvokeVoidAsync("showModal", "individualAssetListPreviewModal");
+    }
+
+    private void UpdateSelectedEmployeeAssets()
+    {
+        if (selectedEmployeeForAssetList.HasValue)
+        {
+            printAssetList = GetVisibleAssets()
+                .Where(a => a.AssignedEmployeeID == selectedEmployeeForAssetList)
+                .OrderBy(a => a.AssetTag)
+                .ToList();
+        }
+        else
+        {
+            printAssetList.Clear();
+        }
+    }
+
+    private void UpdateSelectedEmployeeProductHistory()
+    {
+        if (selectedEmployeeForProductHistory.HasValue)
+        {
+            productHistoryAssets = GetVisibleAssets()
+                .Where(a => a.AssignedEmployeeID == selectedEmployeeForProductHistory)
+                .OrderBy(a => a.AssetTag)
+                .ToList();
+        }
+        else
+        {
+            productHistoryAssets.Clear();
+        }
+    }
+
+    private EmployeeDirectoryEntry? SelectedProductHistoryEmployee => selectedEmployeeForProductHistory.HasValue
+        ? employees?.FirstOrDefault(e => e.EmployeeID == selectedEmployeeForProductHistory.Value)
+        : null;
+
+    private async Task ConfirmIndividualAssetListPrint()
+    {
+        await JSRuntime.InvokeVoidAsync("hideModal", "individualAssetListPreviewModal");
+        await Task.Delay(100);
+        var title = isEmployeePreview && SelectedEmployee != null
+            ? $"Individual Asset List - {SelectedEmployee.EmployeeCode}"
+            : "Asset List";
+        await JSRuntime.InvokeVoidAsync("printReport", "individualAssetListPrint", title);
+    }
+
     private void GenerateAssetTag()
     {
-        if (string.IsNullOrWhiteSpace(newAssetType))
+        var effectiveType = GetEffectiveAssetType();
+        if (string.IsNullOrWhiteSpace(effectiveType))
         {
             newAssetTag = "";
             return;
         }
 
-        // e.g., JBC-Laptop-01
-        // Find how many of this type exist
-        string typePrefix = newAssetType.Replace(" ", ""); // remove spaces, e.g. MacMini
-        int count = assets.Count(a => a.Type.Equals(newAssetType, StringComparison.OrdinalIgnoreCase));
-        
-        newAssetTag = $"JBC-{typePrefix}-{(count + 1):D2}";
+        newAssetTag = GenerateNextAssetTag(effectiveType);
+    }
+
+    private async Task HandleAssetImportFileChange(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream(20 * 1024 * 1024);
+            using var reader = new StreamReader(stream);
+            var content = await reader.ReadToEndAsync();
+            await ParseAndPreviewAssets(content, file.Name);
+        }
+        catch (Exception ex)
+        {
+            assetImportSuccess = false;
+            assetImportMessage = $"Unable to read CSV: {ex.Message}";
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ParseAndPreviewAssets(string content, string fileName)
+    {
+        var lines = content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (lines.Length <= 1)
+        {
+            assetImportSuccess = false;
+            assetImportMessage = "CSV file is empty or missing data rows.";
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        importPreviewData = new List<ImportAssetPreview>();
+        var typeIndex = 0;
+
+        for (var lineIndex = 1; lineIndex < lines.Length; lineIndex++)
+        {
+            var line = lines[lineIndex];
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            var fields = ParseCsvLine(line);
+            if (fields.Count < 4)
+            {
+                continue;
+            }
+
+            var assignedPerson = GetCsvField(fields, 1);
+            var employeeCode = GetCsvField(fields, 2);
+            var rawType = GetCsvField(fields, 3);
+            var brand = GetCsvField(fields, 4);
+            var model = GetCsvField(fields, 5);
+            var ram = GetCsvField(fields, 6);
+            var ssd = GetCsvField(fields, 7);
+            var serialNumber = GetCsvField(fields, 8);
+
+            var effectiveType = MapTypeToOption(rawType);
+            if (string.IsNullOrWhiteSpace(effectiveType))
+            {
+                continue;
+            }
+
+            var assetTag = GenerateNextAssetTagWithIndex(effectiveType, typeIndex++);
+            var resolvedEmployeeId = ResolveEmployeeId(employeeCode, assignedPerson);
+            var assignedEmployeeName = resolvedEmployeeId.HasValue
+                ? employees.FirstOrDefault(e => e.EmployeeID == resolvedEmployeeId.Value)?.EmployeeName ?? "Unknown"
+                : null;
+
+            var asset = new Asset
+            {
+                AssetTag = assetTag,
+                Type = effectiveType,
+                SerialNumber = NormalizeImportedCell(serialNumber),
+                PurchaseDate = null,
+                Status = resolvedEmployeeId.HasValue ? "Assigned" : "Available",
+                Notes = string.Empty,
+                AssignedEmployeeID = resolvedEmployeeId,
+                Model = BuildModelValue(brand, model),
+                Config = BuildConfigValue(ram, ssd, null)
+            };
+
+            var isDuplicate = DetectDuplicate(asset);
+            var preview = new ImportAssetPreview
+            {
+                Asset = asset,
+                AssignedEmployeeName = assignedEmployeeName,
+                IsDuplicate = isDuplicate,
+                ValidationWarning = string.IsNullOrWhiteSpace(asset.SerialNumber) ? "No serial" : null,
+                IsSelected = !isDuplicate
+            };
+
+            importPreviewData.Add(preview);
+        }
+
+        importPreviewFileName = fileName;
+        await JSRuntime.InvokeVoidAsync("showModal", "importPreviewModal");
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private string GenerateNextAssetTagWithIndex(string effectiveType, int typeIndex)
+    {
+        string typePrefix = effectiveType.Replace(" ", "");
+        var effectiveTypeKey = GetTypeKey(effectiveType);
+        var count = assets.Count(a => GetTypeKey(a.Type) == effectiveTypeKey) + typeIndex;
+
+        return $"JBC-{typePrefix}-{(count + 1):D2}";
+    }
+
+    private bool DetectDuplicate(Asset candidate)
+    {
+        if (string.IsNullOrWhiteSpace(candidate.SerialNumber))
+        {
+            return false;
+        }
+
+        return assets.Any(a => !string.IsNullOrWhiteSpace(a.SerialNumber) && a.SerialNumber.Equals(candidate.SerialNumber, StringComparison.OrdinalIgnoreCase))
+            || importPreviewData?.Any(p => !string.IsNullOrWhiteSpace(p.Asset.SerialNumber) && p.Asset.SerialNumber.Equals(candidate.SerialNumber, StringComparison.OrdinalIgnoreCase) && p.Asset.AssetTag != candidate.AssetTag) == true;
+    }
+
+    private void ToggleAllImportRows(bool isSelected)
+    {
+        if (importPreviewData != null)
+        {
+            foreach (var preview in importPreviewData)
+            {
+                preview.IsSelected = isSelected;
+            }
+        }
+    }
+
+    private async Task ConfirmImportAssets()
+    {
+        if (importPreviewData == null || !importPreviewData.Any(p => p.IsSelected))
+        {
+            return;
+        }
+
+        await ImportSelectedAssets();
+        await JSRuntime.InvokeVoidAsync("hideModal", "importPreviewModal");
+    }
+
+    private void CloseImportPreview()
+    {
+        importPreviewData = null;
+        importPreviewFileName = null;
+    }
+
+    private async Task ImportSelectedAssets()
+    {
+        if (importPreviewData == null)
+        {
+            return;
+        }
+
+        var selectedAssets = importPreviewData.Where(p => p.IsSelected).ToList();
+        if (!selectedAssets.Any())
+        {
+            assetImportSuccess = false;
+            assetImportMessage = "No assets selected for import.";
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        var importedCount = 0;
+        var errorMessages = new List<string>();
+
+        foreach (var preview in selectedAssets)
+        {
+            var asset = preview.Asset;
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Put, $"{FirebaseDatabaseURL}/assets/{asset.AssetTag}.json?auth={FirebaseApiKey}");
+                request.Content = JsonContent.Create(asset);
+
+                var response = await Http.SendAsync(request);
+                if (!response.IsSuccessStatusCode)
+                {
+                    errorMessages.Add($"{asset.AssetTag}: {(int)response.StatusCode} {response.ReasonPhrase}");
+                    continue;
+                }
+
+                assets.Add(asset);
+                importedCount++;
+            }
+            catch (Exception ex)
+            {
+                errorMessages.Add($"{asset.AssetTag}: {ex.Message}");
+            }
+        }
+
+        dataTableInitialized = false;
+        assetImportSuccess = importedCount > 0;
+        assetImportMessage = importedCount == 0
+            ? $"No assets were imported."
+            : $"Successfully imported {importedCount} asset{(importedCount > 1 ? "s" : "")} from {importPreviewFileName}";
+
+        if (errorMessages.Any())
+        {
+            assetImportMessage += $" ({string.Join("; ", errorMessages.Take(3))})";
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task SaveAsset()
     {
-        if (string.IsNullOrWhiteSpace(newAssetType)) return;
+        var effectiveType = GetEffectiveAssetType();
+        if (string.IsNullOrWhiteSpace(effectiveType)) return;
 
         if (!isEditing && string.IsNullOrEmpty(newAssetTag))
         {
@@ -360,39 +1853,48 @@
 
         var asset = isEditing 
             ? assets.FirstOrDefault(a => a.AssetTag == newAssetTag) 
-            : new Asset { AssetTag = newAssetTag, Type = newAssetType };
+            : new Asset { AssetTag = newAssetTag, Type = effectiveType };
 
         if (asset == null) return;
 
         // Keep track of changes for History
         string historyAction = "";
-        int? newAssignee = newStatus == "Assigned" ? newAssignedEmployeeID : null;
+        var effectiveTeamName = string.IsNullOrWhiteSpace(newAssignedTeamName) ? null : newAssignedTeamName.Trim();
+        var effectiveResponsible = string.IsNullOrWhiteSpace(newResponsiblePerson) ? null : newResponsiblePerson.Trim();
+        int? newAssignee = newStatus == "Assigned" && newAssignmentType == "Individual" ? newAssignedEmployeeID : null;
+        bool isTeamAssignment = newStatus == "Assigned" && newAssignmentType == "Team";
+        string? newAssignmentDisplay = isTeamAssignment
+            ? (effectiveTeamName is not null ? $"Team {effectiveTeamName}{(effectiveResponsible is not null ? $" (Responsible: {effectiveResponsible})" : string.Empty)}" : null)
+            : (newAssignee.HasValue ? GetEmployeeName(newAssignee.Value) : null);
 
         string GetEmployeeName(int id)
         {
-            var emp = employees.FirstOrDefault(e => e.EmployeeID == id);
-            return emp != null ? $"{emp.Salutation} {emp.FirstName} {emp.LastName}" : $"Emp ID: {id}";
+            var emp = employees?.FirstOrDefault(e => e.EmployeeID == id);
+            return emp != null ? $"{emp.EmployeeCode} - {emp.EmployeeName}" : $"Emp ID: {id}";
         }
+
+        string? previousAssignmentDisplay = asset.AssignedEmployeeID.HasValue
+            ? GetEmployeeName(asset.AssignedEmployeeID.Value)
+            : !string.IsNullOrWhiteSpace(asset.AssignedTeamName)
+                ? $"Team {asset.AssignedTeamName}{(string.IsNullOrWhiteSpace(asset.ResponsiblePerson) ? string.Empty : $" (Responsible: {asset.ResponsiblePerson})")}"
+                : null;
 
         if (!isEditing)
         {
-            if (newAssignee.HasValue)
+            if (!string.IsNullOrWhiteSpace(newAssignmentDisplay))
             {
-                historyAction = $"Assigned to {GetEmployeeName(newAssignee.Value)}";
+                historyAction = $"Assigned to {newAssignmentDisplay}";
             }
         }
-        else
+        else if (!string.Equals(previousAssignmentDisplay, newAssignmentDisplay, StringComparison.OrdinalIgnoreCase))
         {
-            if (asset.AssignedEmployeeID != newAssignee)
+            if (!string.IsNullOrWhiteSpace(newAssignmentDisplay))
             {
-                if (newAssignee.HasValue)
-                {
-                    historyAction = $"Assigned to {GetEmployeeName(newAssignee.Value)}";
-                }
-                else if (asset.AssignedEmployeeID.HasValue)
-                {
-                    historyAction = $"Unassigned from {GetEmployeeName(asset.AssignedEmployeeID.Value)}";
-                }
+                historyAction = $"Assigned to {newAssignmentDisplay}";
+            }
+            else if (!string.IsNullOrWhiteSpace(previousAssignmentDisplay))
+            {
+                historyAction = $"Unassigned from {previousAssignmentDisplay}";
             }
         }
 
@@ -407,27 +1909,33 @@
             });
         }
 
+        asset.Type = effectiveType;
         asset.SerialNumber = newSerialNumber;
-        asset.Model = newModel;
-        asset.Config = newConfig;
+        asset.Model = BuildModelValue();
+        asset.Config = BuildConfigValue();
         asset.PurchaseDate = newPurchaseDate;
         asset.Status = newStatus;
         asset.Notes = newNotes;
-        asset.AssignedEmployeeID = newStatus == "Assigned" ? newAssignedEmployeeID : null;
+        asset.AssignedEmployeeID = newAssignee;
+        asset.AssignedTeamName = isTeamAssignment ? effectiveTeamName : null;
+        asset.ResponsiblePerson = isTeamAssignment ? effectiveResponsible : null;
 
         try
         {
-            var response = await Http.PutAsJsonAsync($"{FirebaseBaseUrl}/{asset.AssetTag}.json?auth={FirebaseAuthKey}", asset);
+            var request = new HttpRequestMessage(HttpMethod.Put, $"{FirebaseDatabaseURL}/assets/{asset.AssetTag}.json?auth={FirebaseApiKey}");
+            request.Content = JsonContent.Create(asset);
+
+            var response = await Http.SendAsync(request);
             if (response.IsSuccessStatusCode)
             {
                 if (!isEditing)
                 {
                     assets.Add(asset);
                 }
+
+                dataTableInitialized = false;
                 
                 // Refresh DataTable
-                await JSRuntime.InvokeVoidAsync("initDataTable", "assetTable");
-
                 await JSRuntime.InvokeVoidAsync("hideModal", "addAssetModal");
                 ResetForm();
             }
@@ -442,17 +1950,395 @@
         }
     }
 
+
+
+    private string GenerateNextAssetTag(string effectiveType)
+    {
+        string typePrefix = effectiveType.Replace(" ", "");
+        var effectiveTypeKey = GetTypeKey(effectiveType);
+        int count = assets.Count(a => GetTypeKey(a.Type) == effectiveTypeKey);
+
+        return $"JBC-{typePrefix}-{(count + 1):D2}";
+    }
+
+    private static string GetCsvField(IReadOnlyList<string> fields, int index)
+    {
+        return index >= 0 && index < fields.Count ? fields[index].Trim() : string.Empty;
+    }
+
+    private static List<string> ParseCsvLine(string line)
+    {
+        var fields = new List<string>();
+        var current = new System.Text.StringBuilder();
+        var inQuotes = false;
+
+        for (var i = 0; i < line.Length; i++)
+        {
+            var character = line[i];
+
+            if (character == '"')
+            {
+                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    current.Append('"');
+                    i++;
+                }
+                else
+                {
+                    inQuotes = !inQuotes;
+                }
+
+                continue;
+            }
+
+            if (character == ',' && !inQuotes)
+            {
+                fields.Add(current.ToString().Trim());
+                current.Clear();
+                continue;
+            }
+
+            current.Append(character);
+        }
+
+        fields.Add(current.ToString().Trim());
+        return fields;
+    }
+
+    private static string? NormalizeImportedCell(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.Equals("n/a", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("na", StringComparison.OrdinalIgnoreCase) ||
+            trimmed == "-" ||
+            trimmed == "---" ||
+            trimmed.Equals("none", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return trimmed;
+    }
+
+    private int? ResolveEmployeeId(string? employeeCode, string? assignedPerson)
+    {
+        var parsedEmployeeId = ParseEmployeeId(employeeCode);
+        if (parsedEmployeeId.HasValue)
+        {
+            var exactEmployee = employees.FirstOrDefault(employee => employee.EmployeeID == parsedEmployeeId.Value);
+            if (exactEmployee != null)
+            {
+                return exactEmployee.EmployeeID;
+            }
+        }
+
+        var normalizedName = NormalizeComparableText(assignedPerson);
+        if (!string.IsNullOrWhiteSpace(normalizedName))
+        {
+            var matchedByName = employees.FirstOrDefault(employee => NormalizeComparableText(employee.EmployeeName) == normalizedName);
+            if (matchedByName != null)
+            {
+                return matchedByName.EmployeeID;
+            }
+        }
+
+        return null;
+    }
+
+    private static int? ParseEmployeeId(string? employeeCode)
+    {
+        if (string.IsNullOrWhiteSpace(employeeCode))
+        {
+            return null;
+        }
+
+        var digits = new string(employeeCode.Where(char.IsDigit).ToArray());
+        return int.TryParse(digits, out var parsedEmployeeId) ? parsedEmployeeId : null;
+    }
+
+    private static string NormalizeComparableText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        return new string(value.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+    }
+
+    private string BuildModelValue(string? brand, string? model)
+    {
+        var normalizedBrand = NormalizeImportedCell(brand);
+        var normalizedModel = NormalizeImportedCell(model);
+
+        if (string.IsNullOrWhiteSpace(normalizedBrand))
+        {
+            return normalizedModel ?? string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(normalizedModel))
+        {
+            return normalizedBrand;
+        }
+
+        return $"{normalizedBrand} {normalizedModel}";
+    }
+
+    private string BuildConfigValue(string? ram, string? ssd, string? additionalConfig)
+    {
+        var parts = new List<string>();
+
+        var normalizedRam = NormalizeImportedCell(ram);
+        if (!string.IsNullOrWhiteSpace(normalizedRam))
+        {
+            parts.Add($"RAM: {normalizedRam}");
+        }
+
+        var normalizedSsd = NormalizeImportedCell(ssd);
+        if (!string.IsNullOrWhiteSpace(normalizedSsd))
+        {
+            parts.Add($"SSD: {normalizedSsd}");
+        }
+
+        var normalizedAdditionalConfig = NormalizeImportedCell(additionalConfig);
+        if (!string.IsNullOrWhiteSpace(normalizedAdditionalConfig))
+        {
+            parts.Add(normalizedAdditionalConfig);
+        }
+
+        return string.Join(" | ", parts);
+    }
+
     private void ResetForm()
     {
         isEditing = false;
         newAssetType = "";
+        customAssetType = "";
         newAssetTag = "";
         newSerialNumber = "";
+        newBrand = "";
+        customBrand = "";
         newModel = "";
-        newConfig = "";
+        newRam = "";
+        newSsd = "";
+        newAdditionalConfig = "";
         newPurchaseDate = null;
         newStatus = "Available";
+        newAssignmentType = "Individual";
         newAssignedEmployeeID = null;
+        newAssignedTeamName = string.Empty;
+        newResponsiblePerson = string.Empty;
         newNotes = "";
+    }
+
+    private string GetEffectiveAssetType()
+    {
+        if (newAssetType == "Other")
+        {
+            return customAssetType.Trim();
+        }
+
+        return newAssetType.Trim();
+    }
+
+    private List<string> GetBrandOptions()
+    {
+        var effectiveType = GetEffectiveAssetType();
+        if (string.IsNullOrWhiteSpace(effectiveType))
+        {
+            return new List<string> { "Other" };
+        }
+
+        var brandTypeKey = MapTypeToOption(effectiveType);
+
+        if (brandOptionsByType.TryGetValue(brandTypeKey, out var brands))
+        {
+            return brands;
+        }
+
+        return new List<string> { "Other" };
+    }
+
+    private string BuildModelValue()
+    {
+        var brand = newBrand == "Other" ? customBrand.Trim() : newBrand.Trim();
+        return BuildModelValue(brand, newModel);
+    }
+
+    private string BuildConfigValue()
+    {
+        return BuildConfigValue(newRam, newSsd, newAdditionalConfig);
+    }
+
+    private IEnumerable<Asset> GetOrderedPrintAssetList()
+    {
+        return printAssetList
+            .OrderBy(a => GetPrintPreviewSortRank(a))
+            .ThenBy(a => a.AssetTag, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static int GetPrintPreviewSortRank(Asset asset)
+    {
+        var typeKey = asset.Type == null ? string.Empty : asset.Type.Trim().ToLowerInvariant();
+        if (typeKey.Contains("phone") || typeKey.Contains("mobile"))
+        {
+            return 0;
+        }
+
+        if (typeKey == "laptop" || typeKey == "desktop" || typeKey == "macbook" || typeKey == "macmini")
+        {
+            return 1;
+        }
+
+        if (typeKey.Contains("monitor"))
+        {
+            return 2;
+        }
+
+        if (typeKey.Contains("ssd") || typeKey.Contains("hdd") || typeKey.Contains("storage"))
+        {
+            return 3;
+        }
+
+        if (typeKey.Contains("webcam"))
+        {
+            return 4;
+        }
+
+        if (typeKey.Contains("accessories"))
+        {
+            return 5;
+        }
+
+        if (typeKey.Contains("mouse") || typeKey.Contains("keyboard"))
+        {
+            return 6;
+        }
+
+        if (typeKey.Contains("laptopstand") || typeKey.Contains("laptop stand"))
+        {
+            return 8;
+        }
+
+        return 7;
+    }
+
+    private string AssetListPreviewTitle => isEmployeePreview && SelectedEmployee != null
+        ? $"Individual Asset List"
+        : "Asset List";
+
+    private static bool ShouldShowConfig(Asset asset)
+    {
+        return asset.Type != null && (
+            string.Equals(asset.Type, "Laptop", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(asset.Type, "Desktop", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(asset.Type, "Macbook", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(asset.Type, "Macmini", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool ShouldShowModelAndSerial(Asset asset)
+    {
+        return !string.Equals(asset.Type, "Laptop Stand", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ParseConfigForEdit(string? config)
+    {
+        newRam = "";
+        newSsd = "";
+        newAdditionalConfig = "";
+
+        if (string.IsNullOrWhiteSpace(config))
+        {
+            return;
+        }
+
+        var parts = config.Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var remaining = new List<string>();
+
+        foreach (var part in parts)
+        {
+            if (part.StartsWith("RAM:", StringComparison.OrdinalIgnoreCase))
+            {
+                newRam = part.Substring(4).Trim();
+                continue;
+            }
+
+            if (part.StartsWith("SSD:", StringComparison.OrdinalIgnoreCase))
+            {
+                newSsd = part.Substring(4).Trim();
+                continue;
+            }
+
+            remaining.Add(part);
+        }
+
+        if (remaining.Any())
+        {
+            newAdditionalConfig = string.Join(" | ", remaining);
+        }
+        else if (string.IsNullOrWhiteSpace(newRam) && string.IsNullOrWhiteSpace(newSsd))
+        {
+            newAdditionalConfig = config;
+        }
+    }
+
+    private string MapTypeToOption(string? assetType)
+    {
+        return GetTypeKey(assetType) switch
+        {
+            "macbook" => "Macbook",
+            "macmini" => "Macmini",
+            "monitor" => "Monitor",
+            "laptop" => "Laptop",
+            "desktop" => "Desktop",
+            "keyboard" => "Keyboard",
+            "mouse" => "Mouse",
+            "dongle" => "Dongle",
+            "mobile" => "Mobile",
+            "usbcable" => "USB Cable",
+            "usbhub" => "USB Hub",
+            "webcam" => "Webcam",
+            "ssd" => "SSD",
+            "ups" => "UPS",
+            "laptopstand" => "Laptop Stand",
+            "accessories" => "Accessories",
+            _ => assetType?.Trim() ?? ""
+        };
+    }
+
+    private string GetTypeKey(string? assetType)
+    {
+        if (string.IsNullOrWhiteSpace(assetType))
+        {
+            return string.Empty;
+        }
+
+        var cleaned = assetType.Trim().ToLowerInvariant().Replace("-", " ");
+        cleaned = string.Join(" ", cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+
+        return cleaned switch
+        {
+            "mac book" => "macbook",
+            "mac mini" => "macmini",
+            "monior" => "monitor",
+            "usb cable" => "usbcable",
+            "usb hub" => "usbhub",
+            "laptop stand" => "laptopstand",
+            _ => cleaned.Replace(" ", "")
+        };
+    }
+
+    private class ImportAssetPreview
+    {
+        public required Asset Asset { get; set; }
+        public string? AssignedEmployeeName { get; set; }
+        public bool IsDuplicate { get; set; }
+        public string? ValidationWarning { get; set; }
+        public bool IsSelected { get; set; }
     }
 }

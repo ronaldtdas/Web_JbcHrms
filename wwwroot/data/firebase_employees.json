@@ -1,0 +1,362 @@
+{
+  "1": {
+    "EmployeeID": 1,
+    "EmployeeCode": "JBC 000001",
+    "EmployeeName": "Md. Tariquel Islam Tamim"
+  },
+  "2": {
+    "EmployeeID": 2,
+    "EmployeeCode": "JBC 000002",
+    "EmployeeName": "Iqbal Hossen Riaz"
+  },
+  "3": {
+    "EmployeeID": 3,
+    "EmployeeCode": "JBC 000003",
+    "EmployeeName": "Faysol Ahmed"
+  },
+  "4": {
+    "EmployeeID": 4,
+    "EmployeeCode": "JBC 000004",
+    "EmployeeName": "Md Akibur Rahman Khan"
+  },
+  "5": {
+    "EmployeeID": 5,
+    "EmployeeCode": "JBC 000005",
+    "EmployeeName": "Shafin Junayed"
+  },
+  "6": {
+    "EmployeeID": 6,
+    "EmployeeCode": "JBC 000006",
+    "EmployeeName": "Tusher Dhali"
+  },
+  "7": {
+    "EmployeeID": 7,
+    "EmployeeCode": "JBC 000007",
+    "EmployeeName": "Md Mostafa"
+  },
+  "8": {
+    "EmployeeID": 8,
+    "EmployeeCode": "JBC 000008",
+    "EmployeeName": "Shad Reza"
+  },
+  "9": {
+    "EmployeeID": 9,
+    "EmployeeCode": "JBC 000009",
+    "EmployeeName": "Shahriar Ahmed Shawon"
+  },
+  "10": {
+    "EmployeeID": 10,
+    "EmployeeCode": "JBC 000010",
+    "EmployeeName": "Md. Rasheeq Zaman"
+  },
+  "11": {
+    "EmployeeID": 11,
+    "EmployeeCode": "JBC 000011",
+    "EmployeeName": "Tanzima Chowdhury"
+  },
+  "12": {
+    "EmployeeID": 12,
+    "EmployeeCode": "JBC 000012",
+    "EmployeeName": "Shohan Mozid Rahman"
+  },
+  "13": {
+    "EmployeeID": 13,
+    "EmployeeCode": "JBC 000013",
+    "EmployeeName": "Farha Faeja Emu"
+  },
+  "15": {
+    "EmployeeID": 15,
+    "EmployeeCode": "JBC 000015",
+    "EmployeeName": "Atiqullah Habib"
+  },
+  "16": {
+    "EmployeeID": 16,
+    "EmployeeCode": "JBC 000016",
+    "EmployeeName": "Md. Noby Hossen"
+  },
+  "17": {
+    "EmployeeID": 17,
+    "EmployeeCode": "JBC 000017",
+    "EmployeeName": "Md.Yeasir Arafat"
+  },
+  "19": {
+    "EmployeeID": 19,
+    "EmployeeCode": "JBC 000019",
+    "EmployeeName": "Nafis Nawal Nahiyan"
+  },
+  "20": {
+    "EmployeeID": 20,
+    "EmployeeCode": "JBC 000020",
+    "EmployeeName": "Md. Moniruzzaman Sujon"
+  },
+  "21": {
+    "EmployeeID": 21,
+    "EmployeeCode": "JBC 000021",
+    "EmployeeName": "Shahrier Hossain"
+  },
+  "22": {
+    "EmployeeID": 22,
+    "EmployeeCode": "JBC 000022",
+    "EmployeeName": "Md. Ifthe Kharul Islam"
+  },
+  "25": {
+    "EmployeeID": 25,
+    "EmployeeCode": "JBC 000025",
+    "EmployeeName": "Sahim Sakir"
+  },
+  "26": {
+    "EmployeeID": 26,
+    "EmployeeCode": "JBC 000026",
+    "EmployeeName": "Pranta Das"
+  },
+  "27": {
+    "EmployeeID": 27,
+    "EmployeeCode": "JBC 000027",
+    "EmployeeName": "Ronaldo Theophil Das"
+  },
+  "28": {
+    "EmployeeID": 28,
+    "EmployeeCode": "JBC 000028",
+    "EmployeeName": "Fahim Ahsan Khan"
+  },
+  "31": {
+    "EmployeeID": 31,
+    "EmployeeCode": "JBC 000031",
+    "EmployeeName": "Md. Rayhan Chowdhury"
+  },
+  "32": {
+    "EmployeeID": 32,
+    "EmployeeCode": "JBC 000032",
+    "EmployeeName": "Asif Ahmed"
+  },
+  "34": {
+    "EmployeeID": 34,
+    "EmployeeCode": "JBC 000034",
+    "EmployeeName": "Athiqul Hasan"
+  },
+  "35": {
+    "EmployeeID": 35,
+    "EmployeeCode": "JBC 000035",
+    "EmployeeName": "Md. Kamrul Haque"
+  },
+  "36": {
+    "EmployeeID": 36,
+    "EmployeeCode": "JBC 000036",
+    "EmployeeName": "Al Amin Tokder"
+  },
+  "37": {
+    "EmployeeID": 37,
+    "EmployeeCode": "JBC 000037",
+    "EmployeeName": "Satadip Dhar"
+  },
+  "38": {
+    "EmployeeID": 38,
+    "EmployeeCode": "JBC 000038",
+    "EmployeeName": "Naznin Nahar"
+  },
+  "39": {
+    "EmployeeID": 39,
+    "EmployeeCode": "JBC 000039",
+    "EmployeeName": "David Dew Mallick"
+  },
+  "40": {
+    "EmployeeID": 40,
+    "EmployeeCode": "JBC 000040",
+    "EmployeeName": "Fazlul Ayan Koushik"
+  },
+  "41": {
+    "EmployeeID": 41,
+    "EmployeeCode": "JBC 000041",
+    "EmployeeName": "Al Amin Haque"
+  },
+  "44": {
+    "EmployeeID": 44,
+    "EmployeeCode": "JBC 000044",
+    "EmployeeName": "Ahanaf Islam"
+  },
+  "46": {
+    "EmployeeID": 46,
+    "EmployeeCode": "JBC 000046",
+    "EmployeeName": "Akif Zaman"
+  },
+  "47": {
+    "EmployeeID": 47,
+    "EmployeeCode": "JBC 000047",
+    "EmployeeName": "Asif Ali"
+  },
+  "48": {
+    "EmployeeID": 48,
+    "EmployeeCode": "JBC 000048",
+    "EmployeeName": "Faysal Ahmed"
+  },
+  "50": {
+    "EmployeeID": 50,
+    "EmployeeCode": "JBC 000050",
+    "EmployeeName": "Mahmudul Hasan"
+  },
+  "53": {
+    "EmployeeID": 53,
+    "EmployeeCode": "JBC 000053",
+    "EmployeeName": "NAIMUL ISLAM"
+  },
+  "54": {
+    "EmployeeID": 54,
+    "EmployeeCode": "JBC 000054",
+    "EmployeeName": "Shahed Al Amin"
+  },
+  "55": {
+    "EmployeeID": 55,
+    "EmployeeCode": "JBC 000055",
+    "EmployeeName": "Md. Arif Hossain"
+  },
+  "56": {
+    "EmployeeID": 56,
+    "EmployeeCode": "JBC 000056",
+    "EmployeeName": "Syed Rizwan"
+  },
+  "57": {
+    "EmployeeID": 57,
+    "EmployeeCode": "JBC 000057",
+    "EmployeeName": "Afsana Akter Eva"
+  },
+  "59": {
+    "EmployeeID": 59,
+    "EmployeeCode": "JBC 000059",
+    "EmployeeName": "Abu Ahamed Rafi"
+  },
+  "60": {
+    "EmployeeID": 60,
+    "EmployeeCode": "JBC 000060",
+    "EmployeeName": "MD Zeeshan Akhtar"
+  },
+  "61": {
+    "EmployeeID": 61,
+    "EmployeeCode": "JBC 000061",
+    "EmployeeName": "Nasrin Akter"
+  },
+  "62": {
+    "EmployeeID": 62,
+    "EmployeeCode": "JBC 000062",
+    "EmployeeName": "Md Sabit Islam Bhuiya"
+  },
+  "63": {
+    "EmployeeID": 63,
+    "EmployeeCode": "JBC 000063",
+    "EmployeeName": "Md. Iftekhar Alam"
+  },
+  "64": {
+    "EmployeeID": 64,
+    "EmployeeCode": "JBC 000064",
+    "EmployeeName": "Md Sazzad Hossain"
+  },
+  "65": {
+    "EmployeeID": 65,
+    "EmployeeCode": "JBC 000065",
+    "EmployeeName": "Safwan Iftekhar Uddin"
+  },
+  "66": {
+    "EmployeeID": 66,
+    "EmployeeCode": "JBC 000066",
+    "EmployeeName": "Md. Muhiminul Haque"
+  },
+  "67": {
+    "EmployeeID": 67,
+    "EmployeeCode": "JBC 000067",
+    "EmployeeName": "Md. Zahid Hasan"
+  },
+  "68": {
+    "EmployeeID": 68,
+    "EmployeeCode": "JBC 000068",
+    "EmployeeName": "Salman Ar Rahman"
+  },
+  "69": {
+    "EmployeeID": 69,
+    "EmployeeCode": "JBC 000069",
+    "EmployeeName": "Jalish Mahmud"
+  },
+  "70": {
+    "EmployeeID": 70,
+    "EmployeeCode": "JBC 000070",
+    "EmployeeName": "Md. Sabbir Alam Pran"
+  },
+  "71": {
+    "EmployeeID": 71,
+    "EmployeeCode": "JBC 000071",
+    "EmployeeName": "Anisur Rahman"
+  },
+  "72": {
+    "EmployeeID": 72,
+    "EmployeeCode": "JBC 000072",
+    "EmployeeName": "Badol Hossen"
+  },
+  "73": {
+    "EmployeeID": 73,
+    "EmployeeCode": "JBC 000073",
+    "EmployeeName": "Amin Babu"
+  },
+  "74": {
+    "EmployeeID": 74,
+    "EmployeeCode": "JBC 000074",
+    "EmployeeName": "Sadman Sakib Abir"
+  },
+  "75": {
+    "EmployeeID": 75,
+    "EmployeeCode": "JBC 000075",
+    "EmployeeName": "Ridoy"
+  },
+  "76": {
+    "EmployeeID": 76,
+    "EmployeeCode": "JBC 000076",
+    "EmployeeName": "Momotas Begum"
+  },
+  "77": {
+    "EmployeeID": 77,
+    "EmployeeCode": "JBC 000077",
+    "EmployeeName": "Salma"
+  },
+  "78": {
+    "EmployeeID": 78,
+    "EmployeeCode": "JBC 000078",
+    "EmployeeName": "Mozeda"
+  },
+  "79": {
+    "EmployeeID": 79,
+    "EmployeeCode": "JBC 000079",
+    "EmployeeName": "Tanvir Zaman Prince"
+  },
+  "80": {
+    "EmployeeID": 80,
+    "EmployeeCode": "JBC 000080",
+    "EmployeeName": "Sohag Hossain"
+  },
+  "81": {
+    "EmployeeID": 81,
+    "EmployeeCode": "JBC 000081",
+    "EmployeeName": "Md. Nazmul Hassan"
+  },
+  "82": {
+    "EmployeeID": 82,
+    "EmployeeCode": "JBC 000082",
+    "EmployeeName": "Rashedul Islam"
+  },
+  "83": {
+    "EmployeeID": 83,
+    "EmployeeCode": "JBC 000083",
+    "EmployeeName": "Mohammed Fackruddin Tusher"
+  },
+  "84": {
+    "EmployeeID": 84,
+    "EmployeeCode": "JBC 000084",
+    "EmployeeName": "Nure Saba Binte Alam"
+  },
+  "85": {
+    "EmployeeID": 85,
+    "EmployeeCode": "JBC 000085",
+    "EmployeeName": "Farhan Sadiq Mullick"
+  },
+  "86": {
+    "EmployeeID": 86,
+    "EmployeeCode": "JBC 000086",
+    "EmployeeName": "Anik Rahman"
+  }
+}

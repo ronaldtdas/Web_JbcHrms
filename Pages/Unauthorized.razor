@@ -1,0 +1,53 @@
+@page "/unauthorized"
+@layout LoginLayout
+@attribute [Authorize]
+@inject CustomAuthStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<div class="login-container">
+    <div class="login-card shadow-lg">
+        <div class="card-header text-center bg-warning text-dark p-4">
+            <h3>Access Pending</h3>
+            <p class="mb-0">Your account is awaiting approval</p>
+        </div>
+        <div class="card-body p-4 text-center">
+            <i class="bi bi-shield-lock" style="font-size: 3rem; color: #ffc107;"></i>
+            <p class="mt-3">Your account has been created but requires administrator approval before you can access the system.</p>
+            <p>Please contact your administrator to gain access.</p>
+            <button class="btn btn-primary mt-3" @onclick="Logout">
+                <span class="bi bi-box-arrow-right"></span> Sign Out
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .login-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #f8f9fa;
+    }
+    .login-card {
+        width: 100%;
+        max-width: 440px;
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .card-header h3 {
+        margin: 0;
+        font-weight: 700;
+    }
+</style>
+
+@code {
+    private async Task Logout()
+    {
+        await AuthStateProvider.UpdateAuthenticationState(null);
+        await JSRuntime.InvokeVoidAsync("signOutFirebase");
+        NavigationManager.NavigateTo("login");
+    }
+}

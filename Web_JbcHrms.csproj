@@ -7,7 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Blazored.LocalStorage" Version="4.5.0" />
     <PackageReference Include="CsvHelper" Version="33.1.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="8.0.13" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.13" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.13" PrivateAssets="all" />
   </ItemGroup>
@@ -15,5 +17,56 @@
   <ItemGroup>
     <TrimmerRootDescriptor Include="LinkerConfig.xml" />
   </ItemGroup>
+
+  <UsingTask TaskName="InjectFirebaseConfig" TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <ConfigEnv ParameterType="System.String" />
+      <OutputFile ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs">
+       <![CDATA[
+      bool success = true;
+      string raw = ConfigEnv ?? "";
+      if (!string.IsNullOrWhiteSpace(raw))
+      {
+        var match = Regex.Match(raw, @"\{[^}]*\}", RegexOptions.Singleline);
+        if (!match.Success)
+        {
+          Log.LogError("Could not find JSON-like object in FIREBASE_CONFIG: " + raw);
+          success = false;
+        }
+        else
+        {
+          string inner = match.Value;
+          inner = Regex.Replace(inner, @"([\{,]\s*)(\w+)\s*:", @"$1""$2"":");
+          inner = inner
+            .Replace("\"apiKey\"", "\"ApiKey\"")
+            .Replace("\"authDomain\"", "\"AuthDomain\"")
+            .Replace("\"databaseURL\"", "\"DatabaseURL\"")
+            .Replace("\"projectId\"", "\"ProjectId\"")
+            .Replace("\"storageBucket\"", "\"StorageBucket\"")
+            .Replace("\"messagingSenderId\"", "\"MessagingSenderId\"")
+            .Replace("\"appId\"", "\"AppId\"")
+            .Replace("\"reCaptchaSiteKey\"", "\"ReCaptchaSiteKey\"");
+          File.WriteAllText(OutputFile, "{\n  \"FirebaseConfig\": " + inner + "\n}\n");
+          Log.LogMessage("Firebase config injected into " + OutputFile);
+        }
+      }
+      return success;
+      ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="InjectFirebaseConfigAtBuild" BeforeTargets="BeforeBuild">
+    <InjectFirebaseConfig
+        ConfigEnv="$([System.Environment]::GetEnvironmentVariable('FIREBASE_CONFIG'))"
+        OutputFile="wwwroot\appsettings.json" />
+  </Target>
 
 </Project>

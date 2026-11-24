@@ -54,6 +54,7 @@ main {
     .page {
         flex-direction: row;
         overflow-x: hidden;
+        min-height: 100vh;
     }
 
     .sidebar {
@@ -61,13 +62,16 @@ main {
         height: 100vh;
         position: sticky;
         top: 0;
+        align-self: flex-start;
         flex-shrink: 0;
     }
 
     main {
         flex: 1;
         min-width: 0;
+        min-height: 100vh;
         overflow-x: hidden;
+        overflow-y: auto;
     }
 
     .top-row {
